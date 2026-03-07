@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f4c81" />
+  <title>متابعة الطلبات</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="installBanner" class="install-banner hidden">
+    <div>
+      <strong>تثبيت التطبيق</strong>
+      <p>أضف التطبيق إلى الشاشة الرئيسية للوصول السريع.</p>
+    </div>
+    <div class="install-actions">
+      <button id="installBtn" class="btn primary small">تثبيت</button>
+      <button id="dismissInstallBtn" class="btn ghost small">لاحقًا</button>
+    </div>
+  </div>
+
+  <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
+  <aside id="drawer" class="drawer">
+    <div class="drawer-header">
+      <div>
+        <div class="drawer-title">القائمة</div>
+        <div class="drawer-subtitle">الإعدادات والإدارة</div>
+      </div>
+      <button id="closeDrawerBtn" class="icon-btn">✕</button>
+    </div>
+
+    <nav class="drawer-links">
+      <button class="drawer-link" data-nav="dashboard">لوحة التحكم</button>
+      <button class="drawer-link" data-nav="search">البحث</button>
+      <button class="drawer-link" data-nav="models">الموديلات</button>
+      <button class="drawer-link" data-nav="print">طباعة PDF</button>
+      <button class="drawer-link" data-nav="admin">إعدادات الأدمن</button>
+    </nav>
+
+    <section id="adminPanel" class="admin-panel hidden">
+      <h3>إعدادات الأدمن</h3>
+      <label class="field-label">رابط Apps Script Web App</label>
+      <input id="apiUrlInput" class="text-input" type="url" dir="ltr" />
+      <div class="admin-actions">
+        <button id="saveApiUrlBtn" class="btn primary">حفظ الرابط</button>
+        <button id="resetApiUrlBtn" class="btn ghost">إرجاع الافتراضي</button>
+      </div>
+    </section>
+  </aside>
+
+  <main class="app-shell">
+    <section id="loginView" class="login-view">
+      <div class="login-card glass-card">
+        <div class="login-logo">📊</div>
+        <h1>تسجيل الدخول</h1>
+        <p class="muted">النسخة الاحترافية المرتبطة بالشيت مباشرة</p>
+        <div class="form-group">
+          <label>اسم المستخدم</label>
+          <input id="usernameInput" class="text-input" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label>كلمة المرور</label>
+          <input id="passwordInput" class="text-input" type="password" autocomplete="current-password" />
+        </div>
+        <button id="loginBtn" class="btn primary full">دخول</button>
+        <div id="loginError" class="error-text hidden"></div>
+      </div>
+    </section>
+
+    <section id="appView" class="hidden">
+      <header class="topbar glass-card">
+        <div class="topbar-row">
+          <button id="openDrawerBtn" class="icon-btn top">☰</button>
+          <div class="topbar-brand">
+            <div class="brand-title">نظام متابعة الطلبات</div>
+            <div id="statusLine" class="brand-subtitle">جاهز</div>
+          </div>
+          <button id="refreshBtn" class="icon-btn top">⟳</button>
+        </div>
+        <div class="top-actions">
+          <button id="tabAllBtn" class="chip active">كل العملاء</button>
+          <button id="tabReadyBtn" class="chip">العملاء الجاهزين</button>
+          <button id="goSearchBtn" class="icon-action">🔍</button>
+          <button id="goModelsBtn" class="icon-action">📦</button>
+          <button id="printCurrentBtn" class="icon-action">🖨️</button>
+        </div>
+      </header>
+
+      <section id="dashboardView" class="view active">
+        <div id="summaryBar" class="summary-grid"></div>
+        <div class="table-card glass-card">
+          <div class="table-head">
+            <h2 id="listTitle">العملاء</h2>
+          </div>
+          <div id="clientsTableWrap" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="clientDetailView" class="view">
+        <div class="detail-head glass-card">
+          <div>
+            <button id="backToListBtn" class="btn ghost small">← رجوع</button>
+            <h2 id="detailClientName" class="detail-title"></h2>
+            <div id="detailMeta" class="muted"></div>
+          </div>
+          <div class="detail-actions">
+            <button id="deliverBtn" class="btn success">تسليم المحدد</button>
+            <button id="detailPrintBtn" class="btn ghost">طباعة PDF</button>
+          </div>
+        </div>
+        <div class="table-card glass-card printable-zone" id="detailPrintableZone">
+          <div id="detailTableWrap" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="searchView" class="view">
+        <div class="glass-card search-card">
+          <h2>البحث</h2>
+          <input id="searchInput" class="text-input" placeholder="ابحث باسم العميل" />
+          <div id="searchResults" class="search-results"></div>
+        </div>
+      </section>
+
+      <section id="modelsView" class="view">
+        <div class="glass-card">
+          <div class="section-head">
+            <h2>الموديلات</h2>
+            <button id="printModelsBtn" class="btn ghost small">طباعة PDF</button>
+          </div>
+          <div id="modelsContainer"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
