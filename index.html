@@ -126,9 +126,6 @@
     .searchbox{
       display:flex;gap:8px;margin-bottom:12px
     }
-    .grid-2{
-      display:grid;grid-template-columns:1fr;gap:12px
-    }
     .table-wrap{
       overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:18px
     }
@@ -192,7 +189,6 @@
 
     @media (min-width:700px){
       .stats{grid-template-columns:repeat(4,1fr)}
-      .grid-2{grid-template-columns:1.2fr .8fr}
     }
 
     @media print{
@@ -634,7 +630,7 @@
 
       if(!silent) showLoading("جاري تحميل الطلبية...");
       openScreen("clientScreen");
-      $("clientTitle").textContent = client;
+      $("clientTitle").textContent = readyFilter ? `طلبية العميل الجاهزة: ${client}` : `طلبية العميل: ${client}`;
 
       try{
         const res = await jsonp("getClientModels", {
@@ -642,7 +638,25 @@
           ready: readyFilter ? "true" : "false"
         });
 
-        currentClientModels = (res && res.data) || [];
+        let rows = (res && res.data) || [];
+
+        rows = rows.filter(m => {
+          const remaining = num(m.remaining);
+          const stockQty = num(m.stockQty);
+          const availableToDeliver = num(m.availableToDeliver);
+
+          if (remaining <= 0) return false;
+
+          if (readyFilter) {
+            if (stockQty <= 0) return false;
+            if (availableToDeliver <= 0) return false;
+            return true;
+          }
+
+          return true;
+        });
+
+        currentClientModels = rows;
         renderClientDetails(client, currentClientModels);
         setStatus("طلبية العميل: " + client);
       } catch(err){
@@ -664,16 +678,17 @@
           <span class="chip">المطلوب: ${esc(totalRequired)}</span>
           <span class="chip">المسلّم: ${esc(totalDelivered)}</span>
           <span class="chip">المتبقي: ${esc(totalRemaining)}</span>
+          ${readyFilter ? `<span class="chip">عرض الموديلات الجاهزة فقط</span>` : ``}
         </div>
       `;
 
       if(!rows.length){
-        $("clientTableBody").innerHTML = `<tr><td colspan="7" class="empty">لا توجد موديلات</td></tr>`;
+        $("clientTableBody").innerHTML = `<tr><td colspan="7" class="empty">لا توجد موديلات متاحة للعرض</td></tr>`;
         return;
       }
 
       $("clientTableBody").innerHTML = rows.map((m, i) => {
-        const note = m.deliveryNote || (num(m.delivered) > 0 ? "تم التسليم" : "");
+        const note = num(m.delivered) > 0 ? "تم التسليم جزئيًا" : "";
         return `
           <tr>
             <td>${esc(m.model)}</td>
