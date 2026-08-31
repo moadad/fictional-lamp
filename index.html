@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Jood Orders Pro</title>
+  <meta name="theme-color" content="#1664ff" />
+  <link rel="manifest" href="./manifest.webmanifest" />
   <style>
     :root{--bg:#f4f7fb;--card:#ffffff;--text:#16202a;--muted:#6b7785;--primary:#1664ff;--primary2:#0f4fd6;--success:#16a34a;--warning:#eab308;--danger:#dc2626;--border:#e6ebf2;--shadow:0 10px 30px rgba(17,24,39,.08)}
     *{box-sizing:border-box} html,body{margin:0;padding:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)} body{min-height:100vh}
@@ -23,8 +25,9 @@
     .loading{position:fixed;inset:auto 14px 14px 14px;z-index:80;background:#111827;color:#fff;padding:12px 14px;border-radius:16px;box-shadow:var(--shadow);font-size:14px}.drawer-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:90;opacity:0;pointer-events:none;transition:.2s}.drawer-backdrop.show{opacity:1;pointer-events:auto}
     .drawer{position:fixed;top:0;right:0;height:100vh;width:min(86vw,340px);background:#fff;z-index:91;transform:translateX(100%);transition:.25s ease;border-left:1px solid var(--border);box-shadow:-20px 0 50px rgba(0,0,0,.12);padding:16px;overflow:auto}.drawer.show{transform:translateX(0)}.drawer h3{margin:0 0 14px}.drawer .item{width:100%;text-align:right;padding:14px;border:none;background:#fff;border-radius:16px;margin-bottom:8px;border:1px solid var(--border);font-weight:700;cursor:pointer}.drawer .item.primary{background:#eef4ff;color:var(--primary)}.drawer .item.danger{background:#fff1f2;color:var(--danger)}
     .screen{display:none}.screen.active{display:block}.subtop{display:flex;align-items:center;gap:8px;margin-bottom:12px}.subtop h2{margin:0;font-size:20px;flex:1}.print-actions{display:flex;gap:8px;flex-wrap:wrap}.mini{font-size:12px;color:var(--muted)}.summary-line{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.chip{padding:8px 10px;border-radius:999px;background:#f7faff;border:1px solid var(--border);font-size:12px}
+    .serial-col{width:58px;min-width:58px;font-weight:800;color:#334155}.invoice-chip{background:#eef4ff;border-color:#d7e5ff;color:#114ec8;font-weight:800}.client-identity{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.client-identity-main{min-width:0}.client-invoice{font-size:14px;font-weight:800;color:#114ec8;margin-top:6px}.search-result-card{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.search-result-card:hover{transform:translateY(-1px);border-color:#cfddf5}.search-result-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center}.model-range{display:flex;gap:7px;flex-wrap:wrap;align-items:center}.model-range .chip{font-weight:700}.print-header{display:none}.print-document-title{font-size:22px;font-weight:800}.print-document-subtitle{font-size:12px;color:var(--muted);margin-top:4px}.print-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.print-meta-box{border:1px solid #d7dce4;border-radius:10px;padding:9px 11px}.print-meta-label{font-size:10px;color:#667085}.print-meta-value{font-size:14px;font-weight:800;margin-top:3px;word-break:break-word}
     @media (min-width:700px){.stats{grid-template-columns:repeat(4,1fr)}}
-    @media print{@page{size:A4;margin:12mm}body{background:#fff!important}.no-print{display:none!important}.app{max-width:none}.page{padding:0}.card,.stat,.table-wrap{box-shadow:none!important;border:1px solid #d7d7d7!important}table{min-width:unset!important}th,td{font-size:12px;padding:8px}.screen{display:none!important}.screen.print-target{display:block!important}}
+    @media print{@page{size:A4;margin:10mm}body{background:#fff!important;color:#111827!important}.no-print{display:none!important}.app{max-width:none}.page{padding:0}.card,.stat,.table-wrap{box-shadow:none!important;border:1px solid #d7d7d7!important}.card{border-radius:12px!important}table{min-width:unset!important}th,td{font-size:11px;padding:7px 6px}th{background:#f3f4f6!important;color:#111827!important}.screen{display:none!important}.screen.print-target{display:block!important}.print-header{display:block!important;border-bottom:2px solid #111827;padding-bottom:12px;margin-bottom:12px}.print-meta-grid{grid-template-columns:1fr 1fr}.serial-col{width:44px;min-width:44px}.status-note{padding:4px 7px;font-size:10px}.client-invoice{color:#111827!important}.chip{border-color:#cfd5df!important;background:#fff!important;color:#111827!important}}
   </style>
 </head>
 <body>
@@ -85,15 +88,16 @@
       <section id="clientScreen" class="screen">
         <div class="subtop no-print"><button class="icon-btn" onclick="backToDashboard()">←</button><h2 id="clientTitle">طلبية العميل</h2><button class="soft-btn" onclick="printSection('clientPrintArea')">طباعة الطلبية</button></div>
         <div id="clientPrintArea">
+          <div id="clientPrintHeader" class="print-header"></div>
           <div id="clientSummary" class="card"></div>
-          <div class="card"><div class="table-wrap"><table><thead><tr><th>الموديل</th><th>المطلوب</th><th>المسلّم</th><th>المتبقي</th><th>المخزون</th><th>ملاحظة</th><th id="deliverHead" class="no-print">تسليم</th></tr></thead><tbody id="clientTableBody"></tbody></table></div></div>
+          <div class="card"><div class="table-wrap"><table><thead><tr><th class="serial-col" title="مسلسل">م</th><th>الموديل</th><th>المطلوب</th><th>المسلّم</th><th>المتبقي</th><th>المخزون</th><th>ملاحظة</th><th id="deliverHead" class="no-print">تسليم</th></tr></thead><tbody id="clientTableBody"></tbody></table></div></div>
           <div id="deliverToolbar" class="toolbar no-print"><button class="action-btn" style="max-width:260px" onclick="deliverCurrentClient()">🚚 تنفيذ التسليم</button></div>
         </div>
       </section>
 
       <section id="searchScreen" class="screen">
         <div class="section-title"><h2>البحث</h2><div class="no-print"><button class="soft-btn" onclick="printSection('searchResultsWrap')">طباعة النتائج</button></div></div>
-        <div class="searchbox no-print"><input id="searchInput" class="input" placeholder="ابحث باسم العميل..." oninput="debouncedSearch()" /></div>
+        <div class="searchbox no-print"><input id="searchInput" class="input" placeholder="ابحث باسم العميل أو رقم الفاتورة..." oninput="debouncedSearch()" /></div>
         <div id="searchResultsWrap"><div id="searchResults"></div></div>
       </section>
 
@@ -107,10 +111,25 @@
   <script>
     const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbw-TgIK0QH71_3QRjNvLj6MHZfuivmLOZ1a65NOHksI8LzO-QcRY4aY-90iektum3Mz8g/exec";
     const STORAGE_KEYS = { API_URL:"jood_api_url", SESSION:"jood_session_v2", INSTALL_HIDDEN:"jood_install_hidden_once" };
-    let readyFilter = false, statusFilter = "all", dashboardClients = [], clientStatusCache = {}, currentClient = "", currentClientModels = [], currentUser = null, autoRefreshTimer = null, searchTimer = null, beforeInstallPromptEvent = null;
+    let readyFilter = false, statusFilter = "all", dashboardClients = [], clientInfoCache = {}, clientStatusCache = {}, currentClient = "", currentClientModels = [], currentUser = null, autoRefreshTimer = null, searchTimer = null, beforeInstallPromptEvent = null;
     function $(id){ return document.getElementById(id); }
     function esc(v){ return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;"); }
     function num(v){ const n = Number(v); return isNaN(n) ? 0 : n; }
+    function arNum(v){ return String(v ?? "").replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[Number(d)]); }
+    function naturalModelCompare(a,b){ return String(a?.model ?? a ?? "").localeCompare(String(b?.model ?? b ?? ""), "ar", { numeric:true, sensitivity:"base" }); }
+    function getDashboardClient(client){ const key = String(client || "").trim(); return dashboardClients.find(c => String(c.client || "").trim() === key) || clientInfoCache[key] || null; }
+    function getInvoiceValue(client, rows = [], fallback = ""){
+      const dash = getDashboardClient(client) || {};
+      const candidates = [fallback, dash.invoices, dash.invoice, dash.invoiceNo, dash.invoiceNumber];
+      (rows || []).forEach(r => candidates.push(r?.invoices, r?.invoice, r?.invoiceNo, r?.invoiceNumber, r?.billNo));
+      const values = [];
+      candidates.forEach(v => {
+        if(v === undefined || v === null || v === "") return;
+        String(v).split(/[,،;|\n]+/).map(x => x.trim()).filter(Boolean).forEach(x => { if(!values.includes(x)) values.push(x); });
+      });
+      return values.join("، ") || "-";
+    }
+    function invoiceLabel(value){ return String(value || "").includes("،") ? "أرقام الفواتير" : "رقم الفاتورة"; }
     function showLoading(text){ $("loading").textContent = text || "جاري التحميل..."; $("loading").classList.remove("hide"); }
     function hideLoading(){ $("loading").classList.add("hide"); }
     function setStatus(text){ $("statusLine").textContent = text || "جاهز"; }
@@ -226,15 +245,91 @@
     async function bootApp(){ openScreen("dashboardScreen"); await Promise.all([loadSummary(), loadDashboard(false)]); if(autoRefreshTimer) clearInterval(autoRefreshTimer); autoRefreshTimer = setInterval(async () => { if($("dashboardScreen").classList.contains("active")){ await Promise.all([loadSummary(), loadDashboard(readyFilter, true)]); } }, 15000); initInstallPrompt(); }
     async function loadSummary(){ try{ const res = await jsonp("summary"); const d = (res && res.data) || {}; $("summaryCards").innerHTML = `<div class="stat"><div class="k">كل العملاء</div><div class="v">${esc(d.allClients || 0)}</div></div><div class="stat"><div class="k">العملاء الجاهزون</div><div class="v">${esc(d.readyClients || 0)}</div></div><div class="stat"><div class="k">إجمالي المتبقي</div><div class="v">${esc(d.totalRemaining || 0)}</div></div><div class="stat"><div class="k">إجمالي المخزون</div><div class="v">${esc(d.stockQtyTotal || 0)}</div></div>`; } catch(_){} }
     function setReadyFilter(val){ readyFilter = !!val; $("tabAll").classList.toggle("active", !readyFilter); $("tabReady").classList.toggle("active", readyFilter); updateStatusFilterButtons(); loadDashboard(readyFilter); }
-    async function loadDashboard(readyOnly, silent){ if(!silent) showLoading("جاري تحميل العملاء..."); setStatus(readyOnly ? "عرض العملاء الجاهزين" : "عرض كل العملاء"); try{ const res = await jsonp("getDashboardClients", { ready: readyOnly ? "true" : "false" }); dashboardClients = ((res && res.data) || []).map(client => ({ ...client, progressState: readyOnly ? getStatusMeta("partial", true) : getProgressState(client.required, client.delivered) })); updateStatusFilterButtons(); if(!dashboardClients.length){ $("dashboardCards").innerHTML = `<div class="card empty">لا توجد بيانات للعرض</div>`; return; } renderDashboardCards(); await enrichDashboardStatuses(dashboardClients, readyOnly); updateStatusFilterButtons(); renderDashboardCards(); } catch(err){ $("dashboardCards").innerHTML = `<div class="card empty">${esc(err.message || "حدث خطأ")}</div>`; } finally { hideLoading(); } }
+    async function loadDashboard(readyOnly, silent){ if(!silent) showLoading("جاري تحميل العملاء..."); setStatus(readyOnly ? "عرض العملاء الجاهزين" : "عرض كل العملاء"); try{ const res = await jsonp("getDashboardClients", { ready: readyOnly ? "true" : "false" }); dashboardClients = ((res && res.data) || []).map(client => ({ ...client, progressState: readyOnly ? getStatusMeta("partial", true) : getProgressState(client.required, client.delivered) })); dashboardClients.forEach(c => { if(c && c.client) clientInfoCache[String(c.client).trim()] = { ...(clientInfoCache[String(c.client).trim()] || {}), ...c }; }); updateStatusFilterButtons(); if(!dashboardClients.length){ $("dashboardCards").innerHTML = `<div class="card empty">لا توجد بيانات للعرض</div>`; return; } renderDashboardCards(); await enrichDashboardStatuses(dashboardClients, readyOnly); updateStatusFilterButtons(); renderDashboardCards(); } catch(err){ $("dashboardCards").innerHTML = `<div class="card empty">${esc(err.message || "حدث خطأ")}</div>`; } finally { hideLoading(); } }
     async function refreshAll(){ try{ showLoading("جاري التحديث..."); await Promise.all([ loadSummary(), loadDashboard(readyFilter, true), $("modelsScreen").classList.contains("active") ? loadModels() : Promise.resolve() ]); if($("clientScreen").classList.contains("active") && currentClient){ await openClient(encodeURIComponent(currentClient), true); } setStatus("تم التحديث"); } finally { hideLoading(); } }
     async function openClient(clientEncoded, silent){ const client = decodeURIComponent(clientEncoded); currentClient = client; if(!silent) showLoading("جاري تحميل الطلبية..."); openScreen("clientScreen"); $("clientTitle").textContent = readyFilter ? `طلبية العميل الجاهزة: ${client}` : `طلبية العميل: ${client}`; try{ const visibleRequest = jsonp("getClientModels", { client, ready: readyFilter ? "true" : "false" }); const fullRequest = readyFilter ? jsonp("getClientModels", { client, ready: "false" }) : Promise.resolve(null); const [visibleRes, fullRes] = await Promise.all([visibleRequest, fullRequest]); currentClientModels = (visibleRes && visibleRes.data) || []; renderClientDetails(client, currentClientModels, ((fullRes && fullRes.data) || currentClientModels)); setStatus("طلبية العميل: " + client); } catch(err){ $("clientSummary").innerHTML = `<div class="empty">${esc(err.message || "حدث خطأ")}</div>`; $("clientTableBody").innerHTML = ""; } finally { hideLoading(); } }
-    function renderClientDetails(client, rows, allRows){ const totalRequired = rows.reduce((a,b)=>a+num(b.required),0); const totalDelivered = rows.reduce((a,b)=>a+num(b.delivered),0); const totalRemaining = rows.reduce((a,b)=>a+num(b.remaining),0); const sourceRows = (allRows && allRows.length) ? allRows : rows; const deliveryState = evaluateClientProgressState(sourceRows, sourceRows.reduce((a,b)=>a+num(b.required),0), sourceRows.reduce((a,b)=>a+num(b.delivered),0), false); const readinessState = evaluateClientProgressState(sourceRows, 0, 0, true); clearClientStatusCache(client); clientStatusCache[`0:${client}`] = deliveryState; clientStatusCache[`1:${client}`] = readinessState; const clientState = readyFilter ? readinessState : deliveryState; $("clientSummary").innerHTML = `<div style="font-size:22px;font-weight:700">${esc(client)}</div><div class="summary-line">${statusBadge(clientState)}<span class="chip">المطلوب: ${esc(totalRequired)}</span><span class="chip">المسلّم: ${esc(totalDelivered)}</span><span class="chip">المتبقي: ${esc(totalRemaining)}</span>${readyFilter ? `<span class="chip">حالة الجاهزية</span><span class="chip">عرض الموديلات الجاهزة فقط</span>` : `<span class="chip">حالة التسليم</span><span class="chip">عرض كل موديلات العميل</span>`}</div>`; $("deliverHead").classList.toggle("hide", !readyFilter); $("deliverToolbar").classList.toggle("hide", !readyFilter); if(!rows.length){ $("clientTableBody").innerHTML = `<tr><td colspan="${readyFilter ? 7 : 6}" class="empty">لا توجد موديلات متاحة للعرض</td></tr>`; return; } $("clientTableBody").innerHTML = rows.map((m, i) => { const isAvailable = num(m.availableToDeliver || m.stockQty) > 0; const notes = `<div class="status-note ${num(m.delivered) > 0 ? "ok" : (isAvailable ? "ok" : "no")}">${num(m.delivered) > 0 ? "تم تسليم" : (isAvailable ? "متوفر" : "غير متوفر")}</div>`; const deliverCell = readyFilter ? `<td class="no-print"><input class="qty-input" type="number" min="1" max="${esc(m.availableToDeliver || 0)}" data-row="${i}" placeholder="${num(m.availableToDeliver)>0 ? 'الكمية' : '0'}" ${num(m.availableToDeliver) > 0 ? "" : "disabled"} /></td>` : ``; return `<tr><td>${esc(m.model)}</td><td>${esc(m.required)}</td><td>${esc(m.delivered)}</td><td>${esc(m.remaining)}</td><td>${esc(m.stockQty)}</td><td>${notes}</td>${deliverCell}</tr>`; }).join(""); currentClientModels = rows; }
+    function renderClientDetails(client, rows, allRows){
+      const sortedRows = [...(rows || [])].sort(naturalModelCompare);
+      const sourceRows = (allRows && allRows.length) ? [...allRows].sort(naturalModelCompare) : sortedRows;
+      const totalRequired = sortedRows.reduce((a,b)=>a+num(b.required),0);
+      const totalDelivered = sortedRows.reduce((a,b)=>a+num(b.delivered),0);
+      const totalRemaining = sortedRows.reduce((a,b)=>a+num(b.remaining),0);
+      const deliveryState = evaluateClientProgressState(sourceRows, sourceRows.reduce((a,b)=>a+num(b.required),0), sourceRows.reduce((a,b)=>a+num(b.delivered),0), false);
+      const readinessState = evaluateClientProgressState(sourceRows, 0, 0, true);
+      clearClientStatusCache(client);
+      clientStatusCache[`0:${client}`] = deliveryState;
+      clientStatusCache[`1:${client}`] = readinessState;
+      const clientState = readyFilter ? readinessState : deliveryState;
+      const invoice = getInvoiceValue(client, sourceRows);
+      const invLabel = invoiceLabel(invoice);
+      $("clientSummary").innerHTML = `<div class="client-identity"><div class="client-identity-main"><div style="font-size:22px;font-weight:800">${esc(client)}</div><div class="client-invoice">${esc(invLabel)}: ${esc(invoice)}</div></div>${statusBadge(clientState)}</div><div class="summary-line"><span class="chip invoice-chip">${esc(invLabel)}: ${esc(invoice)}</span><span class="chip">عدد الموديلات: ${esc(arNum(sortedRows.length))}</span><span class="chip">المطلوب: ${esc(totalRequired)}</span><span class="chip">المسلّم: ${esc(totalDelivered)}</span><span class="chip">المتبقي: ${esc(totalRemaining)}</span>${readyFilter ? `<span class="chip">عرض الموديلات الجاهزة فقط</span>` : `<span class="chip">عرض كل موديلات العميل</span>`}</div>`;
+      $("clientPrintHeader").innerHTML = `<div class="print-document-title">Jood Orders Pro</div><div class="print-document-subtitle">بيان طلبية العميل</div><div class="print-meta-grid"><div class="print-meta-box"><div class="print-meta-label">اسم العميل</div><div class="print-meta-value">${esc(client)}</div></div><div class="print-meta-box"><div class="print-meta-label">${esc(invLabel)}</div><div class="print-meta-value">${esc(invoice)}</div></div><div class="print-meta-box"><div class="print-meta-label">عدد الموديلات</div><div class="print-meta-value">${esc(arNum(sortedRows.length))}</div></div><div class="print-meta-box"><div class="print-meta-label">إجمالي المتبقي</div><div class="print-meta-value">${esc(totalRemaining)}</div></div></div>`;
+      $("deliverHead").classList.toggle("hide", !readyFilter);
+      $("deliverToolbar").classList.toggle("hide", !readyFilter);
+      if(!sortedRows.length){
+        $("clientTableBody").innerHTML = `<tr><td colspan="${readyFilter ? 8 : 7}" class="empty">لا توجد موديلات متاحة للعرض</td></tr>`;
+        currentClientModels = [];
+        return;
+      }
+      $("clientTableBody").innerHTML = sortedRows.map((m, i) => {
+        const isAvailable = num(m.availableToDeliver || m.stockQty) > 0;
+        const notes = `<div class="status-note ${num(m.delivered) > 0 ? "ok" : (isAvailable ? "ok" : "no")}">${num(m.delivered) > 0 ? "تم تسليم" : (isAvailable ? "متوفر" : "غير متوفر")}</div>`;
+        const deliverCell = readyFilter ? `<td class="no-print"><input class="qty-input" type="number" min="1" max="${esc(m.availableToDeliver || 0)}" data-row="${i}" placeholder="${num(m.availableToDeliver)>0 ? 'الكمية' : '0'}" ${num(m.availableToDeliver) > 0 ? "" : "disabled"} /></td>` : ``;
+        return `<tr><td class="serial-col">${esc(arNum(i + 1))}</td><td>${esc(m.model)}</td><td>${esc(m.required)}</td><td>${esc(m.delivered)}</td><td>${esc(m.remaining)}</td><td>${esc(m.stockQty)}</td><td>${notes}</td>${deliverCell}</tr>`;
+      }).join("");
+      currentClientModels = sortedRows;
+    }
     async function deliverCurrentClient(){ if(!readyFilter || !currentClient) return; const inputs = Array.from(document.querySelectorAll("#clientTableBody input[data-row]")); const items = []; inputs.forEach(inp => { const idx = num(inp.getAttribute("data-row")); const q = num(inp.value); const row = currentClientModels[idx]; if(row && q > 0) items.push({ model: row.model, qty: q }); }); if(!items.length){ alert("حدد كمية للتسليم"); return; } showLoading("جاري تنفيذ التسليم..."); try{ const res = await jsonp("deliver", { client: currentClient, items: encodeItems(items) }); if(!res || !res.ok) throw new Error((res && res.error) || "تعذر تنفيذ التسليم"); clearClientStatusCache(currentClient); await Promise.all([ openClient(encodeURIComponent(currentClient), true), loadDashboard(readyFilter, true), loadSummary() ]); alert("تم التسليم بنجاح"); } catch(err){ alert(err.message || "حدث خطأ أثناء التسليم"); } finally { hideLoading(); } }
     function backToDashboard(){ openScreen("dashboardScreen"); }
     function debouncedSearch(){ clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 250); }
-    async function doSearch(){ const q = $("searchInput").value.trim(); const wrap = $("searchResults"); if(!q){ wrap.innerHTML = `<div class="card empty">اكتب اسم العميل للبحث</div>`; return; } showLoading("جاري البحث..."); try{ const res = await jsonp("searchClients", { q }); const data = (res && res.data) || []; if(!data.length){ wrap.innerHTML = `<div class="card empty">لا توجد نتائج</div>`; return; } wrap.innerHTML = data.map(name => `<div class="card"><div class="client-row"><div class="client-main"><div class="client-name" onclick="openClient('${encodeURIComponent(name)}')">${esc(name)}</div></div><div><button class="soft-btn" onclick="openClient('${encodeURIComponent(name)}')">فتح</button></div></div></div>`).join(""); } catch(err){ wrap.innerHTML = `<div class="card empty">${esc(err.message || "حدث خطأ")}</div>`; } finally { hideLoading(); } }
-    async function loadModels(){ showLoading("جاري تحميل الموديلات..."); try{ const res = await jsonp("getModelsByPrefix"); const data = (res && res.data) || {}; const keys = Object.keys(data); if(!keys.length){ $("modelsContainer").innerHTML = `<div class="card empty">لا توجد بيانات</div>`; return; } $("modelsContainer").innerHTML = keys.map(prefix => { const arr = data[prefix] || []; const total = arr.reduce((a,b)=>a+num(b.total),0); return `<div class="card"><div class="section-title"><h2>بادئة ${esc(prefix)}</h2><span class="chip">إجمالي المطلوب: ${esc(total)}</span></div><div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الإجمالي</th><th>تفصيل العملاء</th></tr></thead><tbody>${arr.map(m => `<tr><td>${esc(m.model)}</td><td>${esc(m.total)}</td><td style="text-align:right">${(m.clients || []).map(c => `${esc(c.client)} (${esc(c.qty)})`).join("<br>")}</td></tr>`).join("")}</tbody></table></div></div>`; }).join(""); } catch(err){ $("modelsContainer").innerHTML = `<div class="card empty">${esc(err.message || "حدث خطأ")}</div>`; } finally { hideLoading(); } }
+    async function doSearch(){
+      const q = $("searchInput").value.trim();
+      const wrap = $("searchResults");
+      if(!q){ wrap.innerHTML = `<div class="card empty">اكتب اسم العميل أو رقم الفاتورة للبحث</div>`; return; }
+      showLoading("جاري البحث...");
+      try{
+        const [res, allClientsRes] = await Promise.all([jsonp("searchClients", { q }), jsonp("getDashboardClients", { ready:"false" })]);
+        let raw = (res && res.data) || [];
+        const allClients = (allClientsRes && allClientsRes.data) || [];
+        allClients.forEach(c => { if(c && c.client) clientInfoCache[String(c.client).trim()] = { ...(clientInfoCache[String(c.client).trim()] || {}), ...c }; });
+        const qLower = q.toLowerCase();
+        const dashboardMatches = allClients.filter(c => String(c.client || "").toLowerCase().includes(qLower) || String(c.invoices || c.invoice || c.invoiceNo || c.invoiceNumber || "").toLowerCase().includes(qLower));
+        const seen = new Set();
+        const data = [];
+        [...raw, ...dashboardMatches].forEach(item => {
+          const obj = (item && typeof item === "object") ? item : { client:item };
+          const name = String(obj.client || obj.name || obj.customer || "").trim();
+          if(!name || seen.has(name)) return;
+          seen.add(name);
+          const dash = getDashboardClient(name) || {};
+          data.push({ ...dash, ...obj, client:name });
+        });
+        if(!data.length){ wrap.innerHTML = `<div class="card empty">لا توجد نتائج</div>`; return; }
+        wrap.innerHTML = data.map(c => {
+          const invoice = getInvoiceValue(c.client, [], c.invoices || c.invoice || c.invoiceNo || c.invoiceNumber || "");
+          const req = c.required ?? "-", del = c.delivered ?? "-", rem = c.remaining ?? "-";
+          return `<div class="card search-result-card"><div class="search-result-grid"><div class="client-main"><div class="client-name" onclick="openClient('${encodeURIComponent(c.client)}')">${esc(c.client)}</div><div class="client-invoice">${esc(invoiceLabel(invoice))}: ${esc(invoice)}</div><div class="client-meta">المطلوب ${esc(req)} | المسلم ${esc(del)} | المتبقي ${esc(rem)}</div></div><div class="no-print"><button class="soft-btn" onclick="openClient('${encodeURIComponent(c.client)}')">فتح التفاصيل</button></div></div></div>`;
+        }).join("");
+      } catch(err){ wrap.innerHTML = `<div class="card empty">${esc(err.message || "حدث خطأ")}</div>`; }
+      finally { hideLoading(); }
+    }
+    async function loadModels(){
+      showLoading("جاري تحميل الموديلات...");
+      try{
+        const res = await jsonp("getModelsByPrefix");
+        const data = (res && res.data) || {};
+        const keys = Object.keys(data).sort((a,b)=>String(a).localeCompare(String(b), "ar", {numeric:true}));
+        if(!keys.length){ $("modelsContainer").innerHTML = `<div class="card empty">لا توجد بيانات</div>`; return; }
+        $("modelsContainer").innerHTML = keys.map(prefix => {
+          const arr = [...(data[prefix] || [])].sort(naturalModelCompare);
+          const total = arr.reduce((a,b)=>a+num(b.total),0);
+          const fromModel = arr.length ? arr[0].model : "-";
+          const toModel = arr.length ? arr[arr.length - 1].model : "-";
+          return `<div class="card"><div class="section-title"><div><h2>مجموعة ${esc(prefix)}</h2><div class="model-range"><span class="chip">من ${esc(fromModel)}</span><span class="chip">إلى ${esc(toModel)}</span><span class="chip">عدد الموديلات: ${esc(arNum(arr.length))}</span></div></div><span class="chip">إجمالي المطلوب: ${esc(total)}</span></div><div class="table-wrap"><table><thead><tr><th class="serial-col" title="مسلسل">م</th><th>الموديل</th><th>الإجمالي</th><th>تفصيل العملاء</th></tr></thead><tbody>${arr.map((m,i) => `<tr><td class="serial-col">${esc(arNum(i+1))}</td><td>${esc(m.model)}</td><td>${esc(m.total)}</td><td style="text-align:right">${(m.clients || []).map(c => `${esc(c.client)} (${esc(c.qty)})`).join("<br>")}</td></tr>`).join("")}</tbody></table></div></div>`;
+        }).join("");
+      } catch(err){ $("modelsContainer").innerHTML = `<div class="card empty">${esc(err.message || "حدث خطأ")}</div>`; }
+      finally { hideLoading(); }
+    }
     function printSection(id){ document.querySelectorAll(".screen").forEach(s => s.classList.remove("print-target")); const parentScreen = $(id).closest(".screen"); if(parentScreen) parentScreen.classList.add("print-target"); window.print(); }
     function printCurrent(){ const current = document.querySelector(".screen.active"); if(current){ current.classList.add("print-target"); window.print(); setTimeout(() => current.classList.remove("print-target"), 500); } }
     function saveApiUrl(){ const v = $("apiUrlInput").value.trim(); if(!v){ alert("أدخل الرابط"); return; } localStorage.setItem(STORAGE_KEYS.API_URL, v); alert("تم حفظ الرابط"); }
@@ -243,7 +338,12 @@
     function maybeShowInstallButton(){ if(localStorage.getItem(STORAGE_KEYS.INSTALL_HIDDEN) === "1") return; if(!beforeInstallPromptEvent) return; const existing = document.getElementById("installNowBtn"); if(existing) return; const btn = document.createElement("button"); btn.id = "installNowBtn"; btn.className = "item primary"; btn.textContent = "تثبيت التطبيق"; btn.onclick = async function(){ try{ await beforeInstallPromptEvent.prompt(); localStorage.setItem(STORAGE_KEYS.INSTALL_HIDDEN, "1"); btn.remove(); } catch(_){} }; $("drawer").insertBefore(btn, $("adminArea")); }
     document.addEventListener("keydown", function(e){ if(!$("loginScreen").classList.contains("hide") && e.key === "Enter") doLogin(); });
     window.addEventListener("click", function(e){ const d = $("drawer"), b = $("drawerBackdrop"); if(d.classList.contains("show") && !d.contains(e.target) && !e.target.closest(".icon-btn")){ d.classList.remove("show"); b.classList.remove("show"); } });
-    window.addEventListener("load", async function(){ $("apiUrlInput").value = getApiUrl(); const sess = loadSession(); if(sess){ currentUser = sess; $("loginScreen").classList.add("hide"); $("appScreen").classList.remove("hide"); $("adminArea").classList.toggle("hide", !isAdmin()); await bootApp(); } });
+    window.addEventListener("load", async function(){
+      if("serviceWorker" in navigator){ navigator.serviceWorker.register("./sw.js").catch(()=>{}); }
+      $("apiUrlInput").value = getApiUrl();
+      const sess = loadSession();
+      if(sess){ currentUser = sess; $("loginScreen").classList.add("hide"); $("appScreen").classList.remove("hide"); $("adminArea").classList.toggle("hide", !isAdmin()); await bootApp(); }
+    });
   </script>
 </body>
 </html>
