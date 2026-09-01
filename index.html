@@ -17,7 +17,7 @@
     <button class="item primary" onclick="App.goHome();UI.closeDrawer()">🏠 الرئيسية</button>
     <button class="item" onclick="App.openDashboard();UI.closeDrawer()">👥 العملاء</button>
     <button class="item" onclick="Warehouse.open();UI.closeDrawer()">📦 تشغيل المخزن</button>
-    <button class="item" onclick="Search.open();UI.closeDrawer()">🔎 البحث الشامل</button>
+    <button class="item" onclick="Search.open();UI.closeDrawer()">🔎 بحث العملاء والفواتير</button>
     <button class="item" onclick="Print.printCurrent()">🖨️ طباعة الشاشة</button>
     <div id="adminArea" class="hide admin-area">
       <h3>إعدادات الإدارة</h3>
@@ -93,9 +93,9 @@
       </section>
 
       <section id="searchScreen" class="screen">
-        <div class="section-title"><div><h2>البحث الشامل</h2><p>عميل، فاتورة، أو موديل من مربع واحد</p></div><button class="soft-btn no-print" onclick="Print.printSection('searchScreen')">طباعة النتائج</button></div>
+        <div class="section-title"><div><h2>بحث العملاء والفواتير</h2><p>البحث باسم العميل أو رقم الفاتورة فقط</p></div><button class="soft-btn no-print" onclick="Print.printSection('searchScreen')">طباعة النتائج</button></div>
         <div class="search-panel card no-print">
-          <div class="searchbox"><span>⌕</span><input id="searchInput" class="input" placeholder="اكتب اسم العميل أو رقم الفاتورة أو رقم الموديل..." autocomplete="off" /></div>
+          <div class="searchbox"><span>⌕</span><input id="searchInput" class="input" placeholder="اكتب اسم العميل أو رقم الفاتورة..." autocomplete="off" /></div>
           <div class="search-hints"><span>بحث فوري</span><span>بدون إعادة تحميل البيانات كل مرة</span><span id="searchIndexStatus">الفهرس جاهز</span></div>
         </div>
         <div id="searchResults"></div>
@@ -122,7 +122,7 @@
 
   <div id="customerOrderPrintSheet" class="customer-order-print-sheet" aria-hidden="true"></div>
 
-  <script src="./api.js?v=4.3"></script>
-  <script src="./app.js?v=4.3"></script>
+  <script src="./api.js?v=4.4"></script>
+  <script src="./app.js?v=4.4"></script>
 </body>
 </html>
