@@ -45,7 +45,7 @@
       <button class="icon-btn" onclick="UI.toggleDrawer()">☰</button>
       <div class="brand"><h1 id="appTitle">Jood Orders Pro</h1><div id="statusLine">جاهز</div></div>
       <button class="icon-btn" onclick="App.refreshAll()" title="تحديث">⟳</button>
-      <button class="icon-btn" onclick="Print.printCurrent()" title="طباعة">🖨</button>
+      <button class="icon-btn topbar-print" onclick="Print.printCurrent()" title="طباعة">🖨</button>
     </header>
 
     <main class="page">
@@ -74,12 +74,14 @@
       </section>
 
       <section id="clientScreen" class="screen">
-        <div class="subtop no-print">
+        <div class="subtop client-subtop no-print">
           <button class="icon-btn" onclick="App.back()">←</button>
           <div class="subtop-title"><h2 id="clientTitle">طلبية العميل</h2><span id="clientTitleMeta"></span></div>
-          <button class="soft-btn" onclick="ClientProfile.openCurrent()">👤 ملف العميل</button>
-          <button class="soft-btn" onclick="Print.warehouseOrder()">🖨 طباعة المخزن</button>
-          <button class="action-btn compact" onclick="Print.customerOrder()">🧾 طباعة أوردر العميل</button>
+          <div class="subtop-actions client-top-actions">
+            <button class="soft-btn" onclick="ClientProfile.openCurrent()">👤 ملف العميل</button>
+            <button class="soft-btn" onclick="Print.warehouseOrder()">🖨 طباعة المخزن</button>
+            <button class="action-btn compact" onclick="Print.customerOrder()">🧾 طباعة أوردر العميل</button>
+          </div>
         </div>
         <div id="clientPrintHeader" class="print-header"></div>
         <div id="clientSummary" class="card"></div>
@@ -89,7 +91,7 @@
       </section>
 
       <section id="clientProfileScreen" class="screen">
-        <div class="subtop no-print"><button class="icon-btn" onclick="App.back()">←</button><div class="subtop-title"><h2>ملف العميل</h2><span>صفحة مستقلة عن شاشة الطلبية</span></div><button class="soft-btn" onclick="Print.printSection('clientProfileScreen')">🖨 طباعة الملف</button></div>
+        <div class="subtop no-print"><button class="icon-btn" onclick="App.back()">←</button><div class="subtop-title"><h2>ملف العميل</h2><span>صفحة مستقلة عن شاشة الطلبية</span></div><div class="subtop-actions"><button class="soft-btn" onclick="Print.printSection('clientProfileScreen')">🖨 طباعة الملف</button></div></div>
         <div id="profilePrintHeader" class="print-header"></div>
         <div id="profileHero" class="profile-hero card"></div>
         <div id="profileStats" class="stats profile-stats"></div>
@@ -117,7 +119,7 @@
       </section>
 
       <section id="modelOperationScreen" class="screen">
-        <div class="subtop no-print"><button class="icon-btn" onclick="App.back()">←</button><div class="subtop-title"><h2 id="operationTitle">تشغيل الموديل</h2><span id="operationSubtitle"></span></div><button class="soft-btn" onclick="Print.printSection('modelOperationScreen')">🖨 أمر تجهيز</button></div>
+        <div class="subtop no-print"><button class="icon-btn" onclick="App.back()">←</button><div class="subtop-title"><h2 id="operationTitle">تشغيل الموديل</h2><span id="operationSubtitle"></span></div><div class="subtop-actions"><button class="soft-btn" onclick="Print.printSection('modelOperationScreen')">🖨 أمر تجهيز</button></div></div>
         <div id="operationPrintHeader" class="print-header"></div>
         <div id="operationStats" class="stats"></div>
         <div class="toolbar no-print"><button class="action-btn compact" onclick="Reservations.autoReserveCurrent()">🔒 حجز الجاهز تلقائيًا</button><button class="soft-btn" onclick="Reservations.releaseModel()">فك حجوزات الموديل</button></div>
@@ -126,12 +128,19 @@
         <div class="print-signatures"><div>أُعد بواسطة<br><span>الاسم / التوقيع</span></div><div>تم التجهيز بواسطة<br><span>الاسم / التوقيع</span></div></div>
       </section>
     </main>
+
+    <nav class="mobile-nav no-print" aria-label="التنقل السريع">
+      <button data-nav="home" class="active" onclick="App.openDashboard()"><span>⌂</span><small>الرئيسية</small></button>
+      <button data-nav="search" onclick="Search.open()"><span>⌕</span><small>البحث</small></button>
+      <button data-nav="warehouse" onclick="Warehouse.open()"><span>▣</span><small>المخزن</small></button>
+      <button data-nav="menu" onclick="UI.toggleDrawer()"><span>☰</span><small>القائمة</small></button>
+    </nav>
   </div>
 
   <div id="customerOrderPrintSheet" class="customer-order-print-sheet" aria-hidden="true"></div>
   <div id="warehouseOrderPrintSheet" class="warehouse-order-print-sheet" aria-hidden="true"></div>
 
-  <script src="./api.js?v=4.6"></script>
-  <script src="./app.js?v=4.6"></script>
+  <script src="./api.js?v=4.7"></script>
+  <script src="./app.js?v=4.7"></script>
 </body>
 </html>
