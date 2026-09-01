@@ -52,15 +52,23 @@
       <section id="dashboardScreen" class="screen active">
         <div class="section-title"><div><h2>لوحة العملاء</h2><p>متابعة الطلبات والتجهيز والتسليم</p></div><button class="soft-btn no-print" onclick="Print.printSection('dashboardScreen')">طباعة العملاء</button></div>
         <div id="summaryCards" class="stats"></div>
-        <div class="filters no-print">
-          <button id="tabAll" class="tab-btn active" onclick="Dashboard.setReady(false)">كل العملاء</button>
-          <button id="tabReady" class="tab-btn" onclick="Dashboard.setReady(true)">العملاء الجاهزون</button>
-        </div>
-        <div class="filters filters-secondary no-print">
-          <button id="statusAll" class="tab-btn tab-btn-secondary active" onclick="Dashboard.setStatus('all')">كل الحالات <span class="tab-count">0</span></button>
-          <button id="statusDone" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('done')">مكتمل <span class="tab-count">0</span></button>
-          <button id="statusPartial" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('partial')">جزئي <span class="tab-count">0</span></button>
-          <button id="statusNotStarted" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('not-started')">لم يبدأ <span class="tab-count">0</span></button>
+        <div class="filter-control-panel no-print">
+          <div class="filter-control-group">
+            <div class="filter-control-label">عرض العملاء</div>
+            <div class="filters filter-segment primary-segment">
+              <button id="tabAll" class="tab-btn active" onclick="Dashboard.setReady(false)"><span class="filter-dot"></span>كل العملاء</button>
+              <button id="tabReady" class="tab-btn" onclick="Dashboard.setReady(true)"><span class="filter-dot"></span>العملاء الجاهزون</button>
+            </div>
+          </div>
+          <div class="filter-control-group status-filter-group">
+            <div class="filter-control-label">حالة الطلب</div>
+            <div class="filters filters-secondary filter-segment status-segment">
+              <button id="statusAll" class="tab-btn tab-btn-secondary active" onclick="Dashboard.setStatus('all')">كل الحالات <span class="tab-count">0</span></button>
+              <button id="statusDone" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('done')">مكتمل <span class="tab-count">0</span></button>
+              <button id="statusPartial" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('partial')">جزئي <span class="tab-count">0</span></button>
+              <button id="statusNotStarted" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('not-started')">لم يبدأ <span class="tab-count">0</span></button>
+            </div>
+          </div>
         </div>
         <div id="dashboardCards"></div>
       </section>
@@ -104,7 +112,7 @@
       <section id="modelsScreen" class="screen">
         <div class="section-title"><div><h2>تشغيل المخزن</h2><p>المطلوب، المخزون، الحجز، العجز وأولوية التجهيز</p></div><button class="soft-btn no-print" onclick="Print.printSection('modelsScreen')">طباعة التشغيل</button></div>
         <div id="warehouseStats" class="stats"></div>
-        <div class="card warehouse-tools no-print"><div class="searchbox"><span>⌕</span><input id="modelFilterInput" class="input" placeholder="تصفية برقم الموديل أو العميل..." /></div><div class="filters"><button id="whAll" class="tab-btn active" onclick="Warehouse.setFilter('all')">الكل</button><button id="whShort" class="tab-btn" onclick="Warehouse.setFilter('shortage')">عجز</button><button id="whReady" class="tab-btn" onclick="Warehouse.setFilter('ready')">قابل للتجهيز</button><button id="whReserved" class="tab-btn" onclick="Warehouse.setFilter('reserved')">محجوز</button></div></div>
+        <div class="card warehouse-tools no-print"><div class="searchbox"><span>⌕</span><input id="modelFilterInput" class="input" placeholder="تصفية برقم الموديل أو العميل..." /></div><div class="filter-control-label warehouse-filter-label">فلترة الموديلات</div><div class="filters filter-segment warehouse-filter-segment"><button id="whAll" class="tab-btn active" onclick="Warehouse.setFilter('all')">الكل</button><button id="whShort" class="tab-btn" onclick="Warehouse.setFilter('shortage')">عجز</button><button id="whReady" class="tab-btn" onclick="Warehouse.setFilter('ready')">قابل للتجهيز</button><button id="whReserved" class="tab-btn" onclick="Warehouse.setFilter('reserved')">محجوز</button></div></div>
         <div id="modelsContainer"></div>
       </section>
 
@@ -123,7 +131,7 @@
   <div id="customerOrderPrintSheet" class="customer-order-print-sheet" aria-hidden="true"></div>
   <div id="warehouseOrderPrintSheet" class="warehouse-order-print-sheet" aria-hidden="true"></div>
 
-  <script src="./api.js?v=4.5"></script>
-  <script src="./app.js?v=4.5"></script>
+  <script src="./api.js?v=4.6"></script>
+  <script src="./app.js?v=4.6"></script>
 </body>
 </html>
