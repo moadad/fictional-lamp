@@ -70,7 +70,8 @@
           <button class="icon-btn" onclick="App.back()">←</button>
           <div class="subtop-title"><h2 id="clientTitle">طلبية العميل</h2><span id="clientTitleMeta"></span></div>
           <button class="soft-btn" onclick="ClientProfile.openCurrent()">👤 ملف العميل</button>
-          <button class="soft-btn" onclick="Print.printSection('clientScreen')">🖨 طباعة الطلبية</button>
+          <button class="soft-btn" onclick="Print.printSection('clientScreen')">🖨 طباعة المخزن</button>
+          <button class="action-btn compact" onclick="Print.customerOrder()">🧾 طباعة أوردر العميل</button>
         </div>
         <div id="clientPrintHeader" class="print-header"></div>
         <div id="clientSummary" class="card"></div>
@@ -119,7 +120,9 @@
     </main>
   </div>
 
-  <script src="./api.js?v=4.1"></script>
-  <script src="./app.js?v=4.1"></script>
+  <div id="customerOrderPrintSheet" class="customer-order-print-sheet" aria-hidden="true"></div>
+
+  <script src="./api.js?v=4.3"></script>
+  <script src="./app.js?v=4.3"></script>
 </body>
 </html>
