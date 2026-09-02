@@ -63,7 +63,8 @@
           <div class="filter-control-group status-filter-group">
             <div class="filter-control-label">حالة الطلب</div>
             <div class="filters filters-secondary filter-segment status-segment">
-              <button id="statusAll" class="tab-btn tab-btn-secondary active" onclick="Dashboard.setStatus('all')">كل الحالات <span class="tab-count">0</span></button>
+              <button id="statusAll" class="tab-btn tab-btn-secondary active" onclick="Dashboard.setStatus('all')"><span id="statusAllLabel">غير مكتمل</span> <span class="tab-count">0</span></button>
+              <button id="statusReadyFull" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('ready-full')">جاهز بالكامل <span class="tab-count">0</span></button>
               <button id="statusDone" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('done')">مكتمل <span class="tab-count">0</span></button>
               <button id="statusPartial" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('partial')">جزئي <span class="tab-count">0</span></button>
               <button id="statusNotStarted" class="tab-btn tab-btn-secondary" onclick="Dashboard.setStatus('not-started')">لم يبدأ <span class="tab-count">0</span></button>
@@ -140,7 +141,7 @@
   <div id="customerOrderPrintSheet" class="customer-order-print-sheet" aria-hidden="true"></div>
   <div id="warehouseOrderPrintSheet" class="warehouse-order-print-sheet" aria-hidden="true"></div>
 
-  <script src="./api.js?v=4.7"></script>
-  <script src="./app.js?v=4.7"></script>
+  <script src="./api.js?v=4.9"></script>
+  <script src="./app.js?v=4.9"></script>
 </body>
 </html>

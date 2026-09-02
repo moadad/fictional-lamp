@@ -30,13 +30,35 @@ function clientModelProgress(c,cached=[]){
   if(!ready&&cached?.length){ready=new Set(cached.filter(r=>!isModelDelivered(r)&&(()=>{const st=stockForModel(r);return st!==null&&st>0})()).map(r=>String(r.model??'').trim()).filter(Boolean)).size}
   return {ready:Math.min(ready,total||ready),total};
 }
+function readyModelSet(v){
+  const out=new Set();
+  const add=x=>{const model=String(typeof x==='object'?(x?.model??x?.code??x?.id??''):x??'').trim();if(model)out.add(model)};
+  if(Array.isArray(v))v.forEach(add);else if(typeof v==='string')v.split(/[,،;|\n]+/).forEach(add);
+  return out;
+}
+function clientFullyReady(c,cached=[]){
+  if(cached?.length){
+    const pending=[...new Set(cached.filter(r=>effectiveRemaining(r)>0).map(r=>String(r.model??'').trim()).filter(Boolean))];
+    if(!pending.length)return false;
+    const readySet=readyModelSet(c.readyModels),readyCount=countModelValues(c.readyModels);
+    if(readySet.size)return pending.every(m=>readySet.has(m));
+    if(readyCount)return readyCount>=pending.length;
+    return pending.every(model=>cached.filter(r=>String(r.model??'').trim()===model&&effectiveRemaining(r)>0).every(r=>{const stock=stockForModel(r);return stock!==null&&availableAfterReservations(r.model,stock)>0}));
+  }
+  const p=clientModelProgress(c,[]);
+  return p.total>0&&p.ready>=p.total;
+}
 const Dashboard={
   _enriching:false,
   async summary(){try{const r=await Api.summary();const d=Api.readData(r)||{};$('summaryCards').innerHTML=statCard('كل العملاء',d.allClients||state.allClients.length)+statCard('العملاء الجاهزون',d.readyClients||0)+statCard('إجمالي المتبقي',d.totalRemaining||0)+statCard('إجمالي المخزون',d.stockQtyTotal||0)}catch(_){if(state.allClients.length)Dashboard.localSummary()}},
   localSummary(){$('summaryCards').innerHTML=statCard('كل العملاء',state.allClients.length)+statCard('المطلوب',state.allClients.reduce((a,c)=>a+num(c.required),0))+statCard('المسلّم',state.allClients.reduce((a,c)=>a+num(c.delivered),0))+statCard('المتبقي',state.allClients.reduce((a,c)=>a+num(c.remaining),0))},
   async load(ready=false,silent=false){if(!silent)UI.showLoading('جاري تحميل العملاء...');try{const r=await Api.dashboard(ready);state.clients=Api.readData(r)||[];if(!ready){state.allClients=state.clients.slice()}else if(!state.allClients.length){const all=await Api.dashboard(false);state.allClients=Api.readData(all)||[]}Dashboard.render();Search.rebuildIndex()}catch(e){$('dashboardCards').innerHTML=`<div class="card empty">${esc(e.message)}</div>`}finally{if(!silent)UI.hideLoading()}},
   setReady(v){state.ready=!!v;state.status='all';$('tabAll').classList.toggle('active',!state.ready);$('tabReady').classList.toggle('active',state.ready);Dashboard.load(state.ready)},
-  setStatus(v){state.status=v;Dashboard.render()},
+  setStatus(v){
+    if(v==='done'&&state.ready){state.ready=false;state.status='done';$('tabAll').classList.add('active');$('tabReady').classList.remove('active');return Dashboard.load(false)}
+    if(v==='ready-full'&&!state.ready){state.ready=true;state.status='ready-full';$('tabAll').classList.remove('active');$('tabReady').classList.add('active');return Dashboard.load(true)}
+    state.status=v;Dashboard.render()
+  },
   async enrichModelTotals(source){
     if(Dashboard._enriching)return;
     const pending=(source||state.clients).filter(c=>countModelValues(c.readyModels)>0&&!clientModelProgress(c,state.clientCache.get(c.client)||[]).total).slice(0,8);
@@ -48,12 +70,16 @@ const Dashboard={
     if($('dashboardScreen')?.classList.contains('active'))Dashboard.render();
   },
   render(){
-    const enriched=state.clients.map(c=>{const cached=state.clientCache.get(c.client);if(cached&&cached.length){const req=cached.reduce((a,r)=>a+num(r.required),0),del=cached.reduce((a,r)=>a+num(r.delivered),0),rem=cached.reduce((a,r)=>a+effectiveRemaining(r),0);return {...c,required:req,delivered:del,remaining:rem,_status:status(req,del,state.ready,cached),_progress:clientModelProgress(c,cached)}}return {...c,_status:status(c.required,c.delivered,state.ready),_progress:clientModelProgress(c,[])}});
-    const counts={all:enriched.length,done:0,partial:0,'not-started':0};enriched.forEach(c=>counts[c._status.code]++);
-    [['statusAll','all'],['statusDone','done'],['statusPartial','partial'],['statusNotStarted','not-started']].forEach(([id,k])=>{const b=$(id);b.classList.toggle('active',state.status===k);b.querySelector('.tab-count').textContent=counts[k]||0});
-    const list=state.status==='all'?enriched:enriched.filter(c=>c._status.code===state.status);
+    const enriched=state.clients.map(c=>{const cached=state.clientCache.get(c.client);if(cached&&cached.length){const req=cached.reduce((a,r)=>a+num(r.required),0),del=cached.reduce((a,r)=>a+num(r.delivered),0),rem=cached.reduce((a,r)=>a+effectiveRemaining(r),0),deliveryStatus=status(req,del,false,cached);return {...c,required:req,delivered:del,remaining:rem,_status:status(req,del,state.ready,cached),_deliveryStatus:deliveryStatus,_progress:clientModelProgress(c,cached)}}const serverRemaining=fields(c,['remaining','remainingQty','balanceQty']),req=num(c.required),del=num(c.delivered),deliveryStatus=serverRemaining!==''&&del>0&&num(serverRemaining)<=0?{code:'done',label:'مكتمل التسليم',cls:'success'}:status(req,del,false);return {...c,_status:status(c.required,c.delivered,state.ready),_deliveryStatus:deliveryStatus,_progress:clientModelProgress(c,[])}});
+    const activeOrders=enriched.filter(c=>c._deliveryStatus.code!=='done');
+    const completedOrders=enriched.filter(c=>c._deliveryStatus.code==='done');
+    const fullyReadyOrders=activeOrders.filter(c=>clientFullyReady(c,state.clientCache.get(c.client)||[]));
+    const counts={all:activeOrders.length,'ready-full':fullyReadyOrders.length,done:completedOrders.length,partial:0,'not-started':0};enriched.forEach(c=>{if(c._deliveryStatus.code!=='done'&&c._status.code!=='done')counts[c._status.code]++});
+    const allLabel=$('statusAllLabel');if(allLabel)allLabel.textContent=state.ready?'كل الحالات':'غير مكتمل';
+    [['statusAll','all'],['statusReadyFull','ready-full'],['statusDone','done'],['statusPartial','partial'],['statusNotStarted','not-started']].forEach(([id,k])=>{const b=$(id);if(!b)return;b.classList.toggle('active',state.status===k);const n=b.querySelector('.tab-count');if(n)n.textContent=counts[k]||0});
+    const list=state.status==='done'?completedOrders:state.status==='ready-full'?fullyReadyOrders:state.status==='all'?activeOrders:activeOrders.filter(c=>c._status.code===state.status);
     $('dashboardCards').innerHTML=list.length?list.map(c=>{const inv=invoiceText(c),p=c._progress||{ready:0,total:0};const progress=p.total?`<span class="chip ready-progress-chip"><span>الجاهز</span><strong>${arNum(p.ready)}</strong><span>من أصل</span><strong>${arNum(p.total)}</strong><span>موديل</span></span>`:(p.ready?`<span class="chip ready-progress-chip loading-progress"><span>الجاهز</span><strong>${arNum(p.ready)}</strong><span>موديل</span></span>`:'');return `<div class="card client-card"><div class="client-row"><div class="client-main"><div class="client-name">${esc(c.client)}</div><div class="client-metrics"><span><small>المطلوب</small><strong>${esc(c.required||0)}</strong></span><span><small>المسلّم</small><strong>${esc(c.delivered||0)}</strong></span><span><small>المتبقي</small><strong>${esc(c.remaining||0)}</strong></span></div><div class="summary-line">${badge(c._status)}<span class="chip invoice-chip">الفاتورة: ${esc(inv)}</span>${progress}</div></div><div class="client-actions no-print"><button class="soft-btn" onclick="Orders.openEncoded('${encodeURIComponent(c.client)}')">فتح الطلبية</button><button class="soft-btn" onclick="ClientProfile.openEncoded('${encodeURIComponent(c.client)}')">👤 ملف العميل</button></div></div></div>`}).join(''):'<div class="card empty">لا توجد بيانات مطابقة</div>';
-    Dashboard.enrichModelTotals(list);
+    Dashboard.enrichModelTotals(state.status==='ready-full'?activeOrders:list);
   }
 };
 async function getClientRows(client,force=false){if(!force&&state.clientCache.has(client))return state.clientCache.get(client);const r=await Api.clientModels(client,false);const rows=Api.readData(r)||[];state.clientCache.set(client,rows);return rows}
