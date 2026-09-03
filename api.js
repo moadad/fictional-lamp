@@ -1,7 +1,9 @@
 (function(){
   'use strict';
   const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbw-TgIK0QH71_3QRjNvLj6MHZfuivmLOZ1a65NOHksI8LzO-QcRY4aY-90iektum3Mz8g/exec';
-  const KEYS={api:'jood_api_url',legacySession:'jood_session_v2',reservation:'jood_reservations_v3'};
+  const KEYS={api:'jood_api_url',legacySession:'jood_session_v2',reservation:'jood_reservations_v3',apiMigration:'jood_api_v54_reset_done'};
+  // V5.4: reset any old/stale server URL saved on users' devices once, so everyone uses the deployed shared Apps Script endpoint.
+  if(localStorage.getItem(KEYS.apiMigration)!=='1'){localStorage.removeItem(KEYS.api);localStorage.setItem(KEYS.apiMigration,'1')}
   const cache=new Map(), inflight=new Map();
   let capabilities={post:false,reservations:false,secureSession:false};
   function apiUrl(){return localStorage.getItem(KEYS.api)||DEFAULT_API_URL}
@@ -23,7 +25,7 @@
     dashboard:(ready=false)=>request('getDashboardClients',attachAuth({ready:ready?'true':'false'}),{ttl:12000}),
     clientModels:(client,ready=false)=>request('getClientModels',attachAuth({client,ready:ready?'true':'false'}),{ttl:18000}),
     models:()=>request('getModelsByPrefix',attachAuth(),{ttl:30000}),
-    prices:()=>request('getModelPrices',attachAuth(),{ttl:3000,dedupe:false}),
+    prices:async()=>{const params=attachAuth();let res=await request('getModelPrices',params,{ttl:3000,dedupe:false});if(res&&res.ok===false&&/إجراء غير معروف|unknown action/i.test(String(res.error||'')))res=await request('prices',params,{ttl:3000,dedupe:false});return res},
     search:q=>request('searchClients',attachAuth({q}),{ttl:12000}),
     async deliver(client,items){const res=await request('deliver',attachAuth({client,items:encodeItems(items)}),{preferPost:capabilities.post,dedupe:false});clear();return res},
     async reserve(client,invoice,items){if(!capabilities.reservations)return {ok:false,unsupported:true};const res=await request('reserveStock',attachAuth({client,invoice:invoice||'',items:encodeItems(items)}),{preferPost:capabilities.post,dedupe:false});clear();return res},

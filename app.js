@@ -186,7 +186,7 @@ async readyInvoice(){
  try{
   const res=await Api.clientModels(state.currentClient,true),raw=Api.readData(res)||[],rows=mergeInvoiceRows(raw.filter(r=>!isModelDelivered(r)&&effectiveRemaining(r)>0));
   if(!rows.length)return alert('لا توجد موديلات جاهزة لهذا العميل حاليًا');
-  try{await PriceBook.reload(true)}catch(e){throw new Error('تعذر قراءة الأسعار المشتركة من Google Sheet. تأكد من تفعيل ورقة الأسعار في Apps Script.') }
+  try{await PriceBook.reload(true)}catch(e){const detail=(e&&e.message)?String(e.message):'خطأ غير معروف';throw new Error('تعذر قراءة الأسعار المشتركة من Google Sheet.\nسبب الخادم: '+detail+'\nرابط الخادم: '+Api.apiUrl()) }
   const missing=rows.filter(r=>PriceBook.price(r.model)<=0).map(r=>r.model);
   if(missing.length){const msg=`لا يمكن إصدار الفاتورة قبل وضع السعر في ورقة Google Sheet «الاسعار» للموديلات التالية:\n${missing.join(' - ')}`;alert(msg);if(Auth.isAdmin())Prices.open();return}
   const client=clientObj(state.currentClient),invList=invoiceValues(client,rows),invoiceNo=invList[0]||fields(client,['invoiceNo','invoice','billNo'])||'-',statement=fields(client,['statement','reference','orderNo','orderNumbers','notes'])||(invList.length>1?invList.join('/'):'-');
