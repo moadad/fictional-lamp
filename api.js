@@ -1,8 +1,8 @@
 (function(){
   'use strict';
-  const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbw-TgIK0QH71_3QRjNvLj6MHZfuivmLOZ1a65NOHksI8LzO-QcRY4aY-90iektum3Mz8g/exec';
-  const KEYS={api:'jood_api_url',legacySession:'jood_session_v2',reservation:'jood_reservations_v3',apiMigration:'jood_api_v54_reset_done'};
-  // V5.4: reset any old/stale server URL saved on users' devices once, so everyone uses the deployed shared Apps Script endpoint.
+  const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbyopR7mxDm2WLEGb-kTHebXuk0vuDRbxu9Sr-rkMdcZHEfMe6weumQSwgiN2wFJDva9fA/exec';
+  const KEYS={api:'jood_api_url',legacySession:'jood_session_v2',reservation:'jood_reservations_v3',apiMigration:'jood_api_v55_reset_done'};
+  // V5.5: reset any old/stale server URL saved on users' devices once, so everyone uses the deployed shared Apps Script endpoint.
   if(localStorage.getItem(KEYS.apiMigration)!=='1'){localStorage.removeItem(KEYS.api);localStorage.setItem(KEYS.apiMigration,'1')}
   const cache=new Map(), inflight=new Map();
   let capabilities={post:false,reservations:false,secureSession:false};
