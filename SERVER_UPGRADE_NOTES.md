@@ -43,3 +43,11 @@ When enabled, the UI is prepared to call:
 
 ## Reservation compatibility mode
 If the backend does not advertise `capabilities.reservations=true`, reservations are stored locally in the browser on that device. This keeps the current system usable but is not a multi-device stock lock. Central/atomic reservation requires the server changes above.
+
+## V5.0 — Shared model prices (optional backend upgrade)
+The frontend currently keeps model prices in browser localStorage for compatibility with the existing server.
+For multi-device pricing, add authenticated backend actions such as:
+- `getModelPrices(token)` — returns `{model, price, description, size}` records.
+- `saveModelPrices(items, token)` — Admin-only mutation; validate the user's role server-side.
+
+Do not rely on hiding the Admin screen alone if prices must be protected against deliberate tampering. Server-side authorization is required for strong enforcement across devices.

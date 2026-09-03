@@ -23,6 +23,7 @@
     dashboard:(ready=false)=>request('getDashboardClients',attachAuth({ready:ready?'true':'false'}),{ttl:12000}),
     clientModels:(client,ready=false)=>request('getClientModels',attachAuth({client,ready:ready?'true':'false'}),{ttl:18000}),
     models:()=>request('getModelsByPrefix',attachAuth(),{ttl:30000}),
+    prices:()=>request('getModelPrices',attachAuth(),{ttl:3000,dedupe:false}),
     search:q=>request('searchClients',attachAuth({q}),{ttl:12000}),
     async deliver(client,items){const res=await request('deliver',attachAuth({client,items:encodeItems(items)}),{preferPost:capabilities.post,dedupe:false});clear();return res},
     async reserve(client,invoice,items){if(!capabilities.reservations)return {ok:false,unsupported:true};const res=await request('reserveStock',attachAuth({client,invoice:invoice||'',items:encodeItems(items)}),{preferPost:capabilities.post,dedupe:false});clear();return res},

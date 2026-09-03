@@ -21,6 +21,7 @@
     <button class="item" onclick="Print.printCurrent()">🖨️ طباعة الشاشة</button>
     <div id="adminArea" class="hide admin-area">
       <h3>إعدادات الإدارة</h3>
+      <button class="item admin-prices-link" onclick="Prices.open();UI.closeDrawer()">💰 الأسعار</button>
       <div class="field"><input id="apiUrlInput" class="input" placeholder="رابط Apps Script Web App" /></div>
       <div class="two-actions"><button class="soft-btn" onclick="Settings.saveApiUrl()">حفظ الرابط</button><button class="danger-btn" onclick="Settings.resetApiUrl()">الافتراضي</button></div>
       <div id="securityStatus" class="security-status"></div>
@@ -81,7 +82,8 @@
           <div class="subtop-actions client-top-actions">
             <button class="soft-btn" onclick="ClientProfile.openCurrent()">👤 ملف العميل</button>
             <button class="soft-btn" onclick="Print.warehouseOrder()">🖨 طباعة المخزن</button>
-            <button class="action-btn compact" onclick="Print.customerOrder()">🧾 طباعة أوردر العميل</button>
+            <button class="soft-btn" onclick="Print.customerOrder()">🧾 طباعة أوردر العميل</button>
+            <button class="action-btn compact invoice-ready-btn" onclick="Print.readyInvoice()">💵 فاتورة الجاهز</button>
           </div>
         </div>
         <div id="clientPrintHeader" class="print-header"></div>
@@ -119,6 +121,22 @@
         <div id="modelsContainer"></div>
       </section>
 
+      <section id="pricesScreen" class="screen">
+        <div class="subtop no-print">
+          <button class="icon-btn" onclick="App.back()">←</button>
+          <div class="subtop-title"><h2>الأسعار</h2><span>الأسعار مشتركة وتُقرأ من Google Sheet</span></div>
+          <div class="subtop-actions"><button class="action-btn compact" onclick="Prices.refresh()">⟳ تحديث من Google Sheet</button></div>
+        </div>
+        <div class="card price-admin-note"><strong>مكان إدخال الأسعار:</strong> في Google Sheet أنشئ ورقة باسم <strong>الاسعار</strong>، العمود <strong>A = رقم الموديل</strong> والعمود <strong>B = السعر</strong>. هذه الصفحة للعرض والمراجعة فقط، وبذلك يرى جميع المستخدمين نفس السعر.</div>
+        <div id="pricesSheetStatus" class="card price-sheet-status"></div>
+        <div class="card price-tools no-print">
+          <div class="searchbox"><span>⌕</span><input id="priceSearchInput" class="input" placeholder="ابحث برقم الموديل..." autocomplete="off" /></div>
+          <div class="price-tools-actions"><button class="soft-btn" onclick="Prices.refresh()">تحديث الأسعار</button></div>
+        </div>
+        <div id="pricesStats" class="stats"></div>
+        <div class="card table-card"><div class="table-wrap"><table class="prices-table"><thead><tr><th>A — رقم الموديل</th><th>B — السعر</th></tr></thead><tbody id="pricesTableBody"></tbody></table></div></div>
+      </section>
+
       <section id="modelOperationScreen" class="screen">
         <div class="subtop no-print"><button class="icon-btn" onclick="App.back()">←</button><div class="subtop-title"><h2 id="operationTitle">تشغيل الموديل</h2><span id="operationSubtitle"></span></div><div class="subtop-actions"><button class="soft-btn" onclick="Print.printSection('modelOperationScreen')">🖨 أمر تجهيز</button></div></div>
         <div id="operationPrintHeader" class="print-header"></div>
@@ -140,8 +158,9 @@
 
   <div id="customerOrderPrintSheet" class="customer-order-print-sheet" aria-hidden="true"></div>
   <div id="warehouseOrderPrintSheet" class="warehouse-order-print-sheet" aria-hidden="true"></div>
+  <div id="readyInvoicePrintSheet" class="ready-invoice-print-sheet" aria-hidden="true"></div>
 
-  <script src="./api.js?v=4.9"></script>
-  <script src="./app.js?v=4.9"></script>
+  <script src="./api.js?v=5.2"></script>
+  <script src="./app.js?v=5.2"></script>
 </body>
 </html>
