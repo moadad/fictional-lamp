@@ -23,10 +23,10 @@ const PriceBook={
   normalizeRows(payload){
     const rows=Array.isArray(payload)?payload:(payload&&Array.isArray(payload.data)?payload.data:[]),out={};
     rows.forEach(r=>{
-      if(Array.isArray(r)){const model=String(r[0]??'').trim(),price=Math.max(0,num(r[1]));if(model)out[model]={model,price};return}
+      if(Array.isArray(r)){const model=String(r[0]??'').trim(),price=Math.max(0,num(r[1])),description=String(r[2]??'').trim();if(model)out[model]={model,price,description};return}
       const model=String(fields(r,['model','modelNo','modelNumber','رقم الموديل','موديل'])??'').trim();
       if(!model)return;
-      out[model]={model,price:Math.max(0,num(fields(r,['price','unitPrice','السعر'])))};
+      out[model]={model,price:Math.max(0,num(fields(r,['price','unitPrice','السعر']))),description:String(fields(r,['description','itemDescription','وصف الموديل','الوصف'])??'').trim()};
     });
     return out
   },
@@ -70,8 +70,8 @@ const Prices={
     const last=state.pricesLoadedAt?new Date(state.pricesLoadedAt).toLocaleString('ar-EG'):'-';
     $('pricesStats').innerHTML=statCard('إجمالي الموديلات',models.length)+statCard('لها سعر',priced)+statCard('بدون سعر',missing)+statCard('آخر تحديث',last);
     const err=state.pricesError?`<div class="price-sync-error">${esc(state.pricesError)}</div>`:'';
-    $('pricesSheetStatus').innerHTML=err||'<span class="price-sync-ok">الأسعار المعروضة تُقرأ من ورقة Google Sheet المشتركة: الأسعار</span>';
-    $('pricesTableBody').innerHTML=models.length?models.map(m=>{const r=book[m]||{};return `<tr><td class="price-model-cell">${esc(m)}</td><td class="price-readonly-value">${r.price!==undefined&&num(r.price)>0?esc(money(r.price)):'—'}</td></tr>`}).join(''):'<tr><td colspan="2" class="empty">لا توجد موديلات</td></tr>'
+    $('pricesSheetStatus').innerHTML=err||'<span class="price-sync-ok">البيانات تُقرأ من ورقة Google Sheet المشتركة: A رقم الموديل / B السعر / C وصف الموديل</span>';
+    $('pricesTableBody').innerHTML=models.length?models.map(m=>{const r=book[m]||{};return `<tr><td class="price-model-cell">${esc(m)}</td><td class="price-readonly-value">${r.price!==undefined&&num(r.price)>0?esc(money(r.price)):'—'}</td><td>${r.description?esc(r.description):'—'}</td></tr>`}).join(''):'<tr><td colspan="3" class="empty">لا توجد موديلات</td></tr>'
   }
 };
 const Auth={async login(){const user=$('user').value.trim(),pass=$('pass').value.trim();if(!user||!pass){$('loginStatus').textContent='أدخل اسم المستخدم وكلمة المرور';return}$('loginBtn').disabled=true;$('loginStatus').textContent='جاري التحقق...';try{const res=await Api.login(user,pass);if(!res||!res.ok){$('loginStatus').textContent='بيانات الدخول غير صحيحة';return}state.user={user:res.user||user,role:res.role||'',token:res.token||'',app:res.app||null};Session.set(state.user);$('pass').value='';Auth.enter()}catch(e){$('loginStatus').textContent=e.message||'تعذر تسجيل الدخول'}finally{$('loginBtn').disabled=false}},logout(){Session.clear();state.user=null;state.history=[];$('appScreen').classList.add('hide');$('loginScreen').classList.remove('hide');$('pass').value='';UI.closeDrawer()},isAdmin(){const r=String(state.user?.role||'').toLowerCase();return r.includes('admin')||r.includes('ادمن')||r.includes('أدمن')||r.includes('مدير')},async enter(){$('loginScreen').classList.add('hide');$('appScreen').classList.remove('hide');$('appTitle').textContent=state.user?.app?.title||'Jood Orders Pro';$('adminArea').classList.toggle('hide',!Auth.isAdmin());$('apiUrlInput').value=Api.apiUrl();state.capabilities=Api.capabilities();Auth.renderSecurity();await App.boot()},renderSecurity(){const c=Api.capabilities();$('securityStatus').innerHTML=`الجلسة: ${c.secureSession?'Token من الخادم':'جلسة المتصفح فقط'}<br>الاتصال POST: ${c.post?'مدعوم':'وضع توافق JSONP'}<br>الحجز المركزي: ${c.reservations?'مدعوم من الخادم':'محلي على الجهاز حتى يفعّل الخادم الحجز'}`}};

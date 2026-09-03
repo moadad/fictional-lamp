@@ -9,7 +9,7 @@ const SHEETS = {
 
 const APP_INFO = {
   title: 'Jood Orders Pro',
-  version: '2026.09.03-shared-google-prices'
+  version: '2026.09.03-shared-google-prices-desc-c'
 };
 
 const CACHE_SECONDS = 15;
@@ -349,14 +349,16 @@ function _ensurePricesSheet_() {
     sh = ss.insertSheet(SHEETS.PRICES);
   }
 
-  // الورقة المطلوبة: A = رقم الموديل ، B = السعر فقط.
+  // الورقة المطلوبة: A = رقم الموديل ، B = السعر ، C = وصف الموديل.
   const a1 = _norm_(sh.getRange('A1').getDisplayValue());
   const b1 = _norm_(sh.getRange('B1').getDisplayValue());
-  if (!a1 && !b1) {
-    sh.getRange('A1:B1').setValues([['رقم الموديل', 'السعر']]);
+  const c1 = _norm_(sh.getRange('C1').getDisplayValue());
+  if (!a1 && !b1 && !c1) {
+    sh.getRange('A1:C1').setValues([['رقم الموديل', 'السعر', 'وصف الموديل']]);
   } else {
     if (!a1) sh.getRange('A1').setValue('رقم الموديل');
     if (!b1) sh.getRange('B1').setValue('السعر');
+    if (!c1) sh.getRange('C1').setValue('وصف الموديل');
   }
 
   sh.setFrozenRows(1);
@@ -365,8 +367,8 @@ function _ensurePricesSheet_() {
 
 function setupPricesSheet() {
   const sh = _ensurePricesSheet_();
-  sh.autoResizeColumns(1, 2);
-  return 'تم تجهيز شيت الاسعار: A رقم الموديل / B السعر';
+  sh.autoResizeColumns(1, 3);
+  return 'تم تجهيز شيت الاسعار: A رقم الموديل / B السعر / C وصف الموديل';
 }
 
 function getModelPrices() {
@@ -375,7 +377,7 @@ function getModelPrices() {
   if (lastRow < 2) return [];
 
   // getDisplayValues يحافظ على رقم الموديل كنص كما يظهر في Google Sheet.
-  const values = sh.getRange(2, 1, lastRow - 1, 2).getDisplayValues();
+  const values = sh.getRange(2, 1, lastRow - 1, 3).getDisplayValues();
   const byModel = new Map();
 
   values.forEach(function(row) {
@@ -384,10 +386,12 @@ function getModelPrices() {
 
     const rawPrice = _norm_(row[1]).replace(/,/g, '');
     const price = rawPrice === '' ? 0 : Number(rawPrice);
+    const description = _norm_(row[2]);
 
     byModel.set(model, {
       model: model,
-      price: isFinite(price) ? Math.max(0, price) : 0
+      price: isFinite(price) ? Math.max(0, price) : 0,
+      description: description
     });
   });
 
