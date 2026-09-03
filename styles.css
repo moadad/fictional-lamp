@@ -168,3 +168,59 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 
 /* V5.2 — shared Google Sheet prices */
 .price-sheet-status{font-size:12px;line-height:1.8}.price-sync-ok{font-weight:800}.price-sync-error{font-weight:900}.price-readonly-value{text-align:center;font-weight:950;direction:ltr;font-size:15px}
+
+
+/* V5.6 — Ready invoice: match supplied Jood invoice layout + reliable printed branding */
+.ready-invoice-print-sheet{display:none;direction:rtl;background:#fff}
+.ready-invoice-document{font-family:Arial,Tahoma,sans-serif;color:#111;background:#fff;width:100%;max-width:100%;direction:rtl;box-sizing:border-box}
+.ready-invoice-document *{box-sizing:border-box}
+.ready-invoice-document .invoice-top{display:grid;grid-template-columns:1fr 1fr;align-items:start;direction:ltr;margin:0 2mm 12mm;min-height:37mm}
+.ready-invoice-document .invoice-logo-wrap{justify-self:start;align-self:start;padding-top:0}
+.ready-invoice-document .invoice-logo{width:44mm;max-width:180px;height:auto;display:block;object-fit:contain}
+.ready-invoice-document .invoice-contact{justify-self:end;width:76mm;min-width:0;text-align:center;direction:ltr;margin-top:-1mm}
+.ready-invoice-document .contact-title{font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:1.15;font-weight:700;margin:0 0 4mm}
+.ready-invoice-document .social-icons{height:16mm;display:flex;align-items:center;justify-content:center;gap:4mm;margin:0 auto 1mm}
+.ready-invoice-document .social-icons img{display:block;object-fit:contain;flex:0 0 auto}
+.ready-invoice-document .social-icons img:nth-child(1){width:13mm;height:13mm}
+.ready-invoice-document .social-icons img:nth-child(2){width:15mm;height:15mm}
+.ready-invoice-document .social-icons img:nth-child(3){width:13mm;height:13mm;image-rendering:auto}
+.ready-invoice-document .contact-phone{font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:1.1;font-weight:700;margin:1mm 0 0}
+.ready-invoice-document .invoice-info-grid{display:grid;grid-template-columns:1fr 55mm 1fr;grid-template-areas:'number title customer';align-items:center;direction:ltr;column-gap:7mm;margin:0 2mm 4mm;font-size:12px}
+.ready-invoice-document .invoice-customer{grid-area:customer;direction:rtl;text-align:right;line-height:2.45;padding-inline-start:1mm;white-space:nowrap}
+.ready-invoice-document .invoice-title-box{grid-area:title;direction:rtl;text-align:center;border:1px solid #92979c;outline:1px solid #d5d7da;outline-offset:-3px;padding:8px 8px;font-size:20px;line-height:1.1;font-weight:900;background:#fff}
+.ready-invoice-document .invoice-number-date{grid-area:number;direction:rtl;text-align:left;line-height:2.45;padding-inline-end:1mm}
+.ready-invoice-document .invoice-number-date>div{display:grid;grid-template-columns:auto 1fr;gap:7px;align-items:baseline;white-space:nowrap}
+.ready-invoice-document .invoice-number-date strong{direction:ltr;text-align:left;justify-self:start}
+.ready-invoice-document .invoice-info-grid span{font-size:10px;font-weight:700}
+.ready-invoice-document .invoice-info-grid strong{font-size:12px;font-weight:900}
+.ready-invoice-document .ready-invoice-table{width:100%;border-collapse:collapse;direction:rtl;margin:0;table-layout:fixed}
+.ready-invoice-document .ready-invoice-table thead th{background:#358b9e!important;color:#fff!important;border:1px solid #c5c8cb!important;padding:3px 5px!important;font-size:12px!important;line-height:1.15;font-weight:900!important;white-space:nowrap}
+.ready-invoice-document .ready-invoice-table tbody td{border:0!important;border-bottom:1px solid #cfd1d3!important;padding:6.5px 6px!important;text-align:center;font-size:11.5px!important;line-height:1.25;vertical-align:middle;background:#fff!important}
+.ready-invoice-document .ready-invoice-table th:nth-child(1){width:11%}
+.ready-invoice-document .ready-invoice-table th:nth-child(2){width:47%}
+.ready-invoice-document .ready-invoice-table th:nth-child(3){width:10%}
+.ready-invoice-document .ready-invoice-table th:nth-child(4){width:10%}
+.ready-invoice-document .ready-invoice-table th:nth-child(5){width:10%}
+.ready-invoice-document .ready-invoice-table th:nth-child(6){width:12%}
+.ready-invoice-document .ready-invoice-table .ri-model{font-weight:500;direction:ltr;font-variant-numeric:tabular-nums}
+.ready-invoice-document .ready-invoice-table .ri-desc{text-align:right;font-weight:500;white-space:normal;unicode-bidi:plaintext;padding-right:9px!important}
+.ready-invoice-document .ready-invoice-table td:nth-child(3),
+.ready-invoice-document .ready-invoice-table td:nth-child(5),
+.ready-invoice-document .ready-invoice-table td:nth-child(6){direction:ltr;font-variant-numeric:tabular-nums}
+.ready-invoice-document .invoice-total-row{display:grid;grid-template-columns:1fr 28mm 33mm;grid-template-areas:'. label value';direction:rtl;align-items:center;gap:4mm;padding:10mm 6mm 7mm;font-size:12px}
+.ready-invoice-document .invoice-total-row span{grid-area:label;text-align:center;font-weight:700}
+.ready-invoice-document .invoice-total-row strong{grid-area:value;font-size:12.5px;min-width:0;text-align:left;direction:ltr;font-weight:500;font-variant-numeric:tabular-nums}
+.ready-invoice-document .invoice-final-row{border-top:1px solid #aeb2b6;display:grid;grid-template-columns:1fr 28mm 33mm;grid-template-areas:'words label value';direction:rtl;gap:4mm;align-items:center;padding:3mm 6mm 0;font-size:12px}
+.ready-invoice-document .invoice-final-row .invoice-words{grid-area:words;text-align:right;font-weight:900;line-height:1.65;padding-left:3mm}
+.ready-invoice-document .invoice-final-row span{grid-area:label;text-align:center;font-weight:700}
+.ready-invoice-document .invoice-final-row strong{grid-area:value;font-size:13px;text-align:left;direction:ltr;font-weight:900;font-variant-numeric:tabular-nums}
+@media print{
+  body.ready-invoice-mode .ready-invoice-print-sheet{display:block!important}
+  body.ready-invoice-mode .ready-invoice-document{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body.ready-invoice-mode .invoice-page{width:100%;min-height:0}
+  body.ready-invoice-mode .invoice-top{break-inside:avoid;page-break-inside:avoid}
+  body.ready-invoice-mode .ready-invoice-table thead{display:table-header-group}
+  body.ready-invoice-mode .ready-invoice-table tr{break-inside:avoid;page-break-inside:avoid}
+  body.ready-invoice-mode .ready-invoice-table th{background:#358b9e!important;color:#fff!important}
+  body.ready-invoice-mode .invoice-logo,body.ready-invoice-mode .social-icons img{visibility:visible!important;opacity:1!important}
+}
