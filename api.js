@@ -24,7 +24,7 @@
     summary:()=>request('summary',attachAuth(),{ttl:20000}),
     dashboard:(ready=false)=>request('getDashboardClients',attachAuth({ready:ready?'true':'false'}),{ttl:12000}),
     clientModels:(client,ready=false)=>request('getClientModels',attachAuth({client,ready:ready?'true':'false'}),{ttl:18000}),
-    models:()=>request('getModelsByPrefix',attachAuth(),{ttl:30000}),
+    models:async(force=false)=>{if(force)clear('getModelsByPrefix');const params=attachAuth(force?{force:'true'}:{}),actions=['getModelsByPrefix','modelsByPrefix','models'];let last=null;for(const action of actions){const res=await request(action,params,{ttl:force?0:15000,dedupe:false});last=res;if(!(res&&res.ok===false&&/إجراء غير معروف|unknown action/i.test(String(res.error||''))))return res}return last},
     prices:async()=>{const params=attachAuth();let res=await request('getModelPrices',params,{ttl:3000,dedupe:false});if(res&&res.ok===false&&/إجراء غير معروف|unknown action/i.test(String(res.error||'')))res=await request('prices',params,{ttl:3000,dedupe:false});return res},
     search:q=>request('searchClients',attachAuth({q}),{ttl:60000}),
     async deliver(client,items){const res=await request('deliver',attachAuth({client,items:encodeItems(items)}),{preferPost:capabilities.post,dedupe:false});clear();return res},

@@ -6,7 +6,7 @@
   <title>Jood Orders Pro</title>
   <meta name="theme-color" content="#155eef" />
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=5.9" />
+  <link rel="stylesheet" href="./styles.css?v=6.0" />
 </head>
 <body>
   <div id="loading" class="loading hide">جاري التحميل...</div>
@@ -115,7 +115,8 @@
       </section>
 
       <section id="modelsScreen" class="screen">
-        <div class="section-title"><div><h2>تشغيل المخزن</h2><p>المطلوب الحالي، المخزون، الحجز، المتبقي وأولوية التجهيز</p></div><button class="soft-btn no-print" onclick="Print.printSection('modelsScreen')">طباعة التشغيل</button></div>
+        <div class="section-title"><div><h2>تشغيل المخزن</h2><p>المطلوب الحالي يتحدث بعد التسليم · المتبقي = المخزون − المطلوب</p></div><div class="section-actions no-print"><button class="action-btn compact" onclick="Warehouse.refresh()">⟳ تحديث المخزن</button><button class="soft-btn" onclick="Print.printSection('modelsScreen')">طباعة التشغيل</button></div></div>
+        <div id="warehouseSyncStatus" class="warehouse-sync-status"></div>
         <div id="warehouseStats" class="stats"></div>
         <div class="card warehouse-tools no-print"><div class="searchbox"><span>⌕</span><input id="modelFilterInput" class="input" placeholder="تصفية برقم الموديل أو العميل..." /></div><div class="filter-control-label warehouse-filter-label">فلترة الموديلات</div><div class="filters filter-segment warehouse-filter-segment"><button id="whAll" class="tab-btn active" onclick="Warehouse.setFilter('all')">الكل</button><button id="whShort" class="tab-btn" onclick="Warehouse.setFilter('shortage')">عجز</button><button id="whReady" class="tab-btn" onclick="Warehouse.setFilter('ready')">قابل للتجهيز</button><button id="whReserved" class="tab-btn" onclick="Warehouse.setFilter('reserved')">محجوز</button></div></div>
         <div id="modelsContainer"></div>
@@ -160,7 +161,7 @@
   <div id="warehouseOrderPrintSheet" class="warehouse-order-print-sheet" aria-hidden="true"></div>
   <div id="readyInvoicePrintSheet" class="ready-invoice-print-sheet" aria-hidden="true"></div>
 
-  <script src="./api.js?v=5.9"></script>
-  <script src="./app.js?v=5.9"></script>
+  <script src="./api.js?v=6.0"></script>
+  <script src="./app.js?v=6.0"></script>
 </body>
 </html>

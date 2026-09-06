@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));const arNum=v=>String(v??'').replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)]);const natural=(a,b)=>String(a?.model??a??'').localeCompare(String(b?.model??b??''),'ar',{numeric:true,sensitivity:'base'});
-const state={user:null,ready:false,status:'all',clients:[],allClients:[],clientCache:new Map(),currentClient:'',currentOrderView:'active',currentRows:[],currentFullRows:[],currentModel:null,warehouseGroups:{},warehouseRows:[],warehouseFilter:'all',history:[],searchIndex:[],searchTimer:null,searchServerTimer:null,modelFilter:'',priceFilter:'',prices:{},pricesLoadedAt:0,pricesError:'',capabilities:{}};
+const state={user:null,ready:false,status:'all',clients:[],allClients:[],clientCache:new Map(),currentClient:'',currentOrderView:'active',currentRows:[],currentFullRows:[],currentModel:null,warehouseGroups:{},warehouseRows:[],warehouseFilter:'all',warehouseLoadedAt:0,warehouseLoadError:'',history:[],searchIndex:[],searchTimer:null,searchServerTimer:null,modelFilter:'',priceFilter:'',prices:{},pricesLoadedAt:0,pricesError:'',capabilities:{}};
 function normalize(s){return String(s??'').toLowerCase().trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s\-_/\\.,،;:]+/g,' ')}
 function fields(obj,names){for(const n of names){if(obj&&obj[n]!==undefined&&obj[n]!==null&&obj[n]!=='')return obj[n]}return ''}
 function invoiceValues(client,rows=[]){const vals=[];const add=v=>String(v??'').split(/[,،;|\n]+/).map(x=>x.trim()).filter(Boolean).forEach(x=>{if(!vals.includes(x))vals.push(x)});add(fields(client,['invoices','invoice','invoiceNo','invoiceNumber','billNo']));rows.forEach(r=>add(fields(r,['invoices','invoice','invoiceNo','invoiceNumber','billNo'])));return vals}
@@ -207,26 +207,62 @@ const ClientProfile={openEncoded(v){return ClientProfile.open(decodeURIComponent
 function stockValue(r){const v=fields(r,['stockQty','stock','availableStock','warehouseQty']);return v===''?null:num(v)}function stockForModel(r){const direct=stockValue(r);if(direct!==null)return direct;const model=String(r?.model??'');const wh=state.warehouseRows.find(x=>String(x.model)===model);return wh?stockValue(wh):null}function warehouseAvailabilityLabel(r){const stock=stockForModel(r);return stock!==null&&stock>0?'متاح في المخزن':'غير متاح في المخزن'}function stockDisplay(v){return v===null?'<span class="stock-unknown">غير ظاهر</span>':String(v)}
 function parseWarehouse(data){const rows=[];Object.keys(data||{}).sort((a,b)=>String(a).localeCompare(String(b),'ar',{numeric:true})).forEach(prefix=>(data[prefix]||[]).sort(natural).forEach(m=>rows.push({...m,prefix})));return rows}
 const Warehouse={
-  async preload(force=false){if(force)Api.clear('getModelsByPrefix');try{const r=await Api.models();state.warehouseGroups=Api.readData(r)||{};state.warehouseRows=parseWarehouse(state.warehouseGroups)}catch(_){}},
-  async open(){UI.screen('modelsScreen');if(!state.warehouseRows.length){UI.showLoading('جاري تحميل تشغيل المخزن...');await Warehouse.preload();UI.hideLoading()}Warehouse.render()},
+  async preload(force=false){
+    if(force)Api.clear('getModelsByPrefix');
+    try{
+      const r=await Api.models(force);
+      if(!r||r.ok===false)throw new Error(r?.error||r?.message||'تعذر تحميل بيانات المخزن');
+      const payload=Api.readData(r)||{};
+      if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('بيانات المخزن غير صالحة');
+      state.warehouseGroups=payload;
+      state.warehouseRows=parseWarehouse(payload);
+      state.warehouseLoadedAt=Date.now();
+      state.warehouseLoadError='';
+      return state.warehouseRows
+    }catch(e){
+      state.warehouseLoadError=e&&e.message?e.message:'تعذر تحميل بيانات المخزن';
+      if(!state.warehouseRows.length){state.warehouseGroups={};state.warehouseRows=[]}
+      return state.warehouseRows
+    }
+  },
+  async open(){
+    UI.screen('modelsScreen');
+    UI.showLoading('جاري تحديث المخزن من الخادم...');
+    await Warehouse.preload(true);
+    UI.status(state.warehouseLoadError?'تعذر تحديث المخزن':'تم تحديث المخزن');
+    UI.hideLoading();Warehouse.render()
+  },
+  async refresh(){
+    UI.showLoading('جاري تحديث المطلوب والمخزون...');
+    await Warehouse.preload(true);Warehouse.render();UI.hideLoading();
+    if(state.warehouseLoadError){UI.status('تعذر تحديث المخزن');alert(state.warehouseLoadError)}else UI.status('تم تحديث المطلوب والمخزون')
+  },
   setFilter(v){state.warehouseFilter=v;Warehouse.render()},
+  balance(m){const stock=stockValue(m);return stock===null?null:stock-num(m.total)},
   render(){
-    ['whAll','whShort','whReady','whReserved'].forEach(id=>$(id).classList.remove('active'));$({all:'whAll',shortage:'whShort',ready:'whReady',reserved:'whReserved'}[state.warehouseFilter]).classList.add('active');
+    ['whAll','whShort','whReady','whReserved'].forEach(id=>$(id)?.classList.remove('active'));const active=$({all:'whAll',shortage:'whShort',ready:'whReady',reserved:'whReserved'}[state.warehouseFilter]);if(active)active.classList.add('active');
+    const sync=$('warehouseSyncStatus');
+    if(sync){
+      const last=state.warehouseLoadedAt?new Date(state.warehouseLoadedAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'-';
+      sync.className='warehouse-sync-status'+(state.warehouseLoadError?' error':'');
+      sync.innerHTML=state.warehouseLoadError?`<strong>تعذر تحديث المخزن:</strong> ${esc(state.warehouseLoadError)} <button class="soft-btn" onclick="Warehouse.refresh()">إعادة المحاولة</button>`:`<span>● بيانات مباشرة من الخادم</span><span>آخر تحديث: ${esc(last)}</span>`
+    }
     const q=normalize(state.modelFilter);let rows=state.warehouseRows.filter(m=>!q||normalize(m.model).includes(q)||(m.clients||[]).some(c=>normalize(c.client).includes(q)));
-    rows=rows.filter(m=>{const stock=stockValue(m),reserved=Reservations.totalForModel(m.model),balance=stock===null?null:stock-num(m.total);if(state.warehouseFilter==='shortage')return balance!==null&&balance<0;if(state.warehouseFilter==='ready')return balance!==null&&balance>=0;if(state.warehouseFilter==='reserved')return reserved>0;return true});
-    const known=rows.filter(m=>stockValue(m)!==null),totalReq=rows.reduce((a,m)=>a+num(m.total),0),totalStock=known.reduce((a,m)=>a+num(stockValue(m)),0),shortages=known.filter(m=>num(stockValue(m))-num(m.total)<0).length;
-    $('warehouseStats').innerHTML=statCard('الموديلات',arNum(rows.length))+statCard('إجمالي المطلوب',totalReq)+statCard('إجمالي المخزون',totalStock)+statCard('موديلات بها عجز',arNum(shortages),known.length?'الأحمر = عجز / الأخضر = متاح':'المخزون غير ظاهر');
+    rows=rows.filter(m=>{const balance=Warehouse.balance(m),reserved=Reservations.totalForModel(m.model);if(state.warehouseFilter==='shortage')return balance!==null&&balance<0;if(state.warehouseFilter==='ready')return balance!==null&&balance>=0;if(state.warehouseFilter==='reserved')return reserved>0;return true});
+    const known=rows.filter(m=>stockValue(m)!==null),totalReq=rows.reduce((a,m)=>a+num(m.total),0),totalStock=known.reduce((a,m)=>a+num(stockValue(m)),0),shortages=known.filter(m=>Warehouse.balance(m)<0).length;
+    $('warehouseStats').innerHTML=statCard('الموديلات',arNum(rows.length))+statCard('إجمالي المطلوب الحالي',totalReq)+statCard('إجمالي المخزون',totalStock)+statCard('موديلات بها عجز',arNum(shortages),known.length?'المتبقي = المخزون − المطلوب':'المخزون غير ظاهر');
     const groups={};rows.forEach(m=>(groups[m.prefix]??=[]).push(m));
-    $('modelsContainer').innerHTML=Object.keys(groups).length?Object.keys(groups).map(prefix=>{const arr=groups[prefix],from=arr[0]?.model||'-',to=arr[arr.length-1]?.model||'-';return `<div class="card warehouse-group"><div class="warehouse-group-head"><div><div class="warehouse-group-title">مجموعة ${esc(prefix)}</div><div class="model-range"><span class="chip">من ${esc(from)}</span><span class="chip">إلى ${esc(to)}</span><span class="chip">${arNum(arr.length)} موديل</span></div></div><span class="chip">المطلوب: ${arr.reduce((a,m)=>a+num(m.total),0)}</span></div><div class="table-wrap"><table><thead><tr><th>م</th><th>الموديل</th><th>المطلوب</th><th>المخزون</th><th>المحجوز</th><th>المتاح للحجز</th><th>المتبقي</th><th>العملاء</th><th class="no-print">تشغيل</th></tr></thead><tbody>${arr.map((m,i)=>{const st=stockValue(m),rs=Reservations.totalForModel(m.model),av=st===null?null:Math.max(0,st-rs),balance=st===null?null:st-num(m.total),balanceClass=balance===null?'':balance<0?'negative':'positive';return `<tr class="${balance!==null&&balance<0?'warehouse-row-short':'warehouse-row-ready'}"><td>${arNum(i+1)}</td><td><button class="model-link" onclick="Warehouse.openModel('${encodeURIComponent(m.model)}')">${esc(m.model)}</button></td><td>${num(m.total)}</td><td>${stockDisplay(st)}</td><td>${rs}</td><td>${av===null?'-':av}</td><td><span class="warehouse-balance ${balanceClass}">${balance===null?'-':balance}</span></td><td>${arNum((m.clients||[]).length)}</td><td class="no-print"><button class="soft-btn" onclick="Warehouse.openModel('${encodeURIComponent(m.model)}')">فتح التشغيل</button></td></tr>`}).join('')}</tbody></table></div></div>`}).join(''):'<div class="card empty">لا توجد موديلات مطابقة</div>'
+    $('modelsContainer').innerHTML=Object.keys(groups).length?Object.keys(groups).map(prefix=>{const arr=groups[prefix],from=arr[0]?.model||'-',to=arr[arr.length-1]?.model||'-';return `<div class="card warehouse-group"><div class="warehouse-group-head"><div><div class="warehouse-group-title">مجموعة ${esc(prefix)}</div><div class="model-range"><span class="chip">من ${esc(from)}</span><span class="chip">إلى ${esc(to)}</span><span class="chip">${arNum(arr.length)} موديل</span></div></div><span class="chip">المطلوب الحالي: ${arr.reduce((a,m)=>a+num(m.total),0)}</span></div><div class="table-wrap"><table><thead><tr><th>م</th><th>الموديل</th><th>المطلوب الحالي</th><th>المخزون</th><th>المتبقي</th><th>الحالة</th><th>المحجوز</th><th>المتاح للحجز</th><th>العملاء</th><th class="no-print">تشغيل</th></tr></thead><tbody>${arr.map((m,i)=>{const st=stockValue(m),rs=Reservations.totalForModel(m.model),av=st===null?null:Math.max(0,st-rs),balance=Warehouse.balance(m),balanceClass=balance===null?'':balance<0?'negative':'positive',statusText=balance===null?'غير معروف':balance<0?'عجز':'متاح';return `<tr class="${balance!==null&&balance<0?'warehouse-row-short':'warehouse-row-ready'}"><td>${arNum(i+1)}</td><td><button class="model-link" onclick="Warehouse.openModel('${encodeURIComponent(m.model)}')">${esc(m.model)}</button></td><td><strong>${num(m.total)}</strong></td><td><strong>${stockDisplay(st)}</strong></td><td><span class="warehouse-balance ${balanceClass}">${balance===null?'-':balance}</span></td><td><span class="warehouse-stock-state ${balanceClass}">${esc(statusText)}</span></td><td>${rs}</td><td>${av===null?'-':av}</td><td>${arNum((m.clients||[]).length)}</td><td class="no-print"><button class="soft-btn" onclick="Warehouse.openModel('${encodeURIComponent(m.model)}')">فتح التشغيل</button></td></tr>`}).join('')}</tbody></table></div></div>`}).join(''):`<div class="card empty">${state.warehouseLoadError?'تعذر تحميل بيانات المخزن. اضغط تحديث للمحاولة مرة أخرى.':'لا توجد موديلات مطلوبة حاليًا'}</div>`
   },
   async openModel(encoded){
     const model=decodeURIComponent(encoded),m=state.warehouseRows.find(x=>String(x.model)===model);if(!m)return;state.currentModel=m;UI.screen('modelOperationScreen');$('operationTitle').textContent='تشغيل الموديل '+model;$('operationSubtitle').textContent='تحميل بيانات العملاء والمخزون...';UI.showLoading('جاري تجهيز شاشة تشغيل الموديل...');
     try{const clients=m.clients||[],details=await mapLimit(clients,5,async c=>{let rows=[];try{rows=await getClientRows(c.client)}catch(_){}const row=rows.find(x=>String(x.model)===model&&!isModelDelivered(x))||{};return {...c,...row,client:c.client,required:fields(row,['required'])||c.qty||0}});m._details=details;Warehouse.renderOperation()}finally{UI.hideLoading()}
   },
   renderOperation(){
-    const m=state.currentModel,rows=m?m._details||[]:[];let stock=stockValue(m);if(stock===null)for(const r of rows){const s=stockValue(r);if(s!==null){stock=s;break}}
-    const totalRemaining=rows.reduce((a,r)=>a+effectiveRemaining(r),0),reserved=Reservations.totalForModel(m.model),available=stock===null?null:Math.max(0,stock-reserved),balance=stock===null?null:stock-totalRemaining;
-    $('operationSubtitle').textContent=`${arNum(rows.length)} عميل · إجمالي المطلوب الحالي ${totalRemaining}`;$('operationStats').innerHTML=statCard('المطلوب الحالي',totalRemaining)+statCard('المخزون',stock===null?'غير ظاهر':stock)+statCard('المحجوز',reserved)+statCard('المتبقي',balance===null?'غير ظاهر':balance,balance!==null&&balance<0?'عجز في المخزون':'متاح');
+    const m=state.currentModel,rows=m?m._details||[]:[];let stock=stockValue(m);if(stock===null)for(const r of rows){const sv=stockValue(r);if(sv!==null){stock=sv;break}}
+    const totalRemaining=rows.reduce((a,r)=>a+effectiveRemaining(r),0),reserved=Reservations.totalForModel(m.model),available=stock===null?null:Math.max(0,stock-reserved),balance=stock===null?null:stock-totalRemaining,balanceClass=balance===null?'':balance<0?'negative':'positive';
+    $('operationSubtitle').textContent=`${arNum(rows.length)} عميل · إجمالي المطلوب الحالي ${totalRemaining}`;
+    $('operationStats').innerHTML=statCard('المطلوب الحالي',totalRemaining)+statCard('المخزون',stock===null?'غير ظاهر':stock)+statCard('المحجوز',reserved)+`<div class="stat"><div class="k">المتبقي = المخزون − المطلوب</div><div class="v"><span class="warehouse-balance ${balanceClass}">${balance===null?'غير ظاهر':balance}</span></div><div class="sub">${balance===null?'':balance<0?'عجز في المخزون':'متاح'}</div></div>`;
     $('operationBody').innerHTML=rows.length?rows.map((r,i)=>{const c=clientObj(r.client),inv=invoiceText(c,[r]),rem=effectiveRemaining(r),rq=Reservations.qty(r.client,inv,m.model),can=isModelDelivered(r)?0:stock===null?0:Math.max(0,Math.min(rem-rq,availableAfterReservations(m.model,stock)));return `<tr><td>${arNum(i+1)}</td><td>${esc(r.client)}</td><td>${esc(inv)}</td><td>${num(r.required||r.qty)}</td><td>${num(r.delivered)}</td><td>${rem}</td><td>${rq}</td><td>${can}</td><td class="no-print">${isModelDelivered(r)?`<span class="status-note ok">${esc(deliveryLabel(r))}</span>`:`<button class="soft-btn" ${can<=0?'disabled':''} onclick="Reservations.reserveRow(${i})">حجز</button> ${rq>0?`<button class="danger-btn" onclick="Reservations.releaseRow(${i})">فك</button>`:''}`}</td></tr>`}).join(''):'<tr><td colspan="9" class="empty">لا توجد تفاصيل عملاء لهذا الموديل</td></tr>';
     const c=Api.capabilities();$('reservationModeNotice').className='mode-notice'+(c.reservations?' server':'');$('reservationModeNotice').textContent=c.reservations?'الحجز مركزي ومدعوم من الخادم، وبالتالي يمكن مشاركته بين الأجهزة.':'الحجز يعمل حاليًا داخل هذا الجهاز للحفاظ على توافق الخادم الحالي. لتوحيد الحجز بين جميع الأجهزة يجب تفعيل reserveStock في الخادم؛ الواجهة جاهزة لذلك.';Print.header('operationPrintHeader','أمر تجهيز مخزن','Jood Kids',{'الموديل':m.model,'إجمالي المطلوب':totalRemaining,'المحجوز':reserved,'تاريخ الطباعة':new Date().toLocaleDateString('ar-EG')})
   }

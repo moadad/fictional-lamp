@@ -9,7 +9,7 @@ const SHEETS = {
 
 const APP_INFO = {
   title: 'Jood Orders Pro',
-  version: '2026.09.06-delivery-completed-warehouse-search'
+  version: '2026.09.07-live-warehouse-v6'
 };
 
 const CACHE_SECONDS = 15;
@@ -65,7 +65,7 @@ function doGet(e) {
       case 'models':
         payload = {
           ok: true,
-          data: getModelsByPrefix()
+          data: getModelsByPrefix(_bool_(p.force))
         };
         break;
 
@@ -164,7 +164,7 @@ function doPost(e) {
       case 'models':
         return _json_({
           ok: true,
-          data: getModelsByPrefix()
+          data: getModelsByPrefix(_bool_(body.force))
         });
 
       case 'getModelPrices':
@@ -423,8 +423,8 @@ function _loadStock_(force) {
   }
 
   const stock = _readSheetSmart_(SHEETS.STOCK, STOCK_COLS);
-  const cModel = 0;
-  const cQty = 2;
+  const cModel = _colOrFallback_(stock.idx, 'model', 0);
+  const cQty = _colOrFallback_(stock.idx, 'qty', 2);
 
   const stockSet = new Set();
   const stockQty = new Map();
@@ -764,7 +764,8 @@ function deliverModels(client, items) {
 
   const out = _readSheetSmart_(SHEETS.OUT, OUT_COLS);
   const outSh = out.sh;
-  const stockSh = _mustSheet_(SHEETS.STOCK);
+  const stockSmart = _readSheetSmart_(SHEETS.STOCK, STOCK_COLS);
+  const stockSh = stockSmart.sh;
   const stockValues = _getAll_(stockSh);
   if (stockValues.length < 2) throw new Error('شيت المخزون فارغ');
 
@@ -775,8 +776,8 @@ function deliverModels(client, items) {
   const cClient = _colOrFallback_(out.idx, 'client', 2);
   const cModel = _colOrFallback_(out.idx, 'model', 3);
   const cQty = _colOrFallback_(out.idx, 'qty', 4);
-  const STOCK_MODEL_COL = 0;
-  const STOCK_QTY_COL = 2;
+  const STOCK_MODEL_COL = _colOrFallback_(stockSmart.idx, 'model', 0);
+  const STOCK_QTY_COL = _colOrFallback_(stockSmart.idx, 'qty', 2);
   const now = new Date();
 
   const clientModels = orders.ordersByClientModel.get(c);

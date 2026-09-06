@@ -224,3 +224,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   body.ready-invoice-mode .ready-invoice-table th{background:#358b9e!important;color:#fff!important}
   body.ready-invoice-mode .invoice-logo,body.ready-invoice-mode .social-icons img{visibility:visible!important;opacity:1!important}
 }
+
+/* V6.0 — live warehouse */
+.warehouse-sync-status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:9px 12px;border:1px solid #ccebd8;background:#f0fbf4;color:#17603b;border-radius:12px;font-size:11px;font-weight:800}.warehouse-sync-status.error{border-color:#f4c8c4;background:#fff5f4;color:var(--danger)}.warehouse-stock-state{display:inline-flex;align-items:center;justify-content:center;min-width:58px;padding:6px 9px;border-radius:999px;font-weight:900}.warehouse-stock-state.positive{background:#eaf8ef;color:var(--success)}.warehouse-stock-state.negative{background:#fff0ef;color:var(--danger)}.section-actions{display:flex;gap:8px;flex-wrap:wrap}.warehouse-balance.positive{box-shadow:inset 0 0 0 1px rgba(24,128,70,.12)}.warehouse-balance.negative{box-shadow:inset 0 0 0 1px rgba(190,48,42,.12)}
+@media(max-width:600px){.warehouse-sync-status{align-items:flex-start;flex-direction:column}.section-actions{width:100%}.section-actions .action-btn,.section-actions .soft-btn{flex:1}}
