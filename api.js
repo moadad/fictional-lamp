@@ -1,8 +1,8 @@
 (function(){
   'use strict';
-  const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbxPavQC_Oq24oAoiXQ0cyCsyA2x_NdzyJALyjEA3lFd9Mrl71BAyjDT24OJP63tbNovmw/exec';
-  const KEYS={api:'jood_api_url',legacySession:'jood_session_v2',reservation:'jood_reservations_v3',apiMigration:'jood_api_v61_server_reset_done'};
-  // V6.1: reset any old/stale server URL saved on users' devices once, so everyone uses the current shared Apps Script endpoint.
+  const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbw4dAVr1-aWA-nIx1Qkc9dpBYyPUv1vcaXsaLZ0PimE2AjHyJvkjFGKISI_7vNjlIzUOA/exec';
+  const KEYS={api:'jood_api_url',legacySession:'jood_session_v2',reservation:'jood_reservations_v3',apiMigration:'jood_api_v58_reset_done'};
+  // V5.8: reset any old/stale server URL saved on users' devices once, so everyone uses the current shared Apps Script endpoint.
   if(localStorage.getItem(KEYS.apiMigration)!=='1'){localStorage.removeItem(KEYS.api);localStorage.setItem(KEYS.apiMigration,'1')}
   const cache=new Map(), inflight=new Map();
   let capabilities={post:false,reservations:false,secureSession:false};
@@ -12,7 +12,7 @@
   function putCache(key,data){cache.set(key,{data,at:Date.now()});return data}
   function clear(prefix){for(const k of cache.keys())if(!prefix||k.startsWith(prefix))cache.delete(k)}
   function jsonp(action,params={}){return new Promise((resolve,reject)=>{const cb='__jood_'+Date.now()+'_'+Math.floor(Math.random()*1e6);const script=document.createElement('script');const timer=setTimeout(()=>done(new Error('انتهت مهلة الاتصال بالخادم')),22000);function cleanup(){clearTimeout(timer);script.remove();try{delete window[cb]}catch(_){window[cb]=undefined}}function done(err,data){cleanup();err?reject(err):resolve(data)}window[cb]=data=>done(null,data);let url;try{url=new URL(apiUrl())}catch(_){done(new Error('رابط الخادم غير صحيح'));return}url.searchParams.set('action',action);url.searchParams.set('callback',cb);Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null)url.searchParams.set(k,String(v))});script.src=url.toString();script.onerror=()=>done(new Error('فشل الاتصال بالخادم'));document.body.appendChild(script)})}
-  async function post(action,params={}){const body=new URLSearchParams({action,...Object.fromEntries(Object.entries(params).filter(([,v])=>v!==undefined&&v!==null).map(([k,v])=>[k,String(v)]))});const controller=typeof AbortController!=='undefined'?new AbortController():null;const timer=controller?setTimeout(()=>controller.abort(),15000):null;try{const r=await fetch(apiUrl(),{method:'POST',body,redirect:'follow',credentials:'omit',signal:controller?.signal});if(!r.ok)throw new Error('فشل الاتصال الآمن بالخادم');return await r.json()}finally{if(timer)clearTimeout(timer)}}
+  async function post(action,params={}){const body=new URLSearchParams({action,...Object.fromEntries(Object.entries(params).filter(([,v])=>v!==undefined&&v!==null).map(([k,v])=>[k,String(v)]))});const r=await fetch(apiUrl(),{method:'POST',body,redirect:'follow',credentials:'omit'});if(!r.ok)throw new Error('فشل الاتصال الآمن بالخادم');return r.json()}
   async function request(action,params={},opts={}){const ttl=opts.ttl||0,key=cacheKey(action,params);if(ttl){const hit=getCached(key,ttl);if(hit!==null)return hit}if(opts.dedupe!==false&&inflight.has(key))return inflight.get(key);const runner=(async()=>{let data;if(opts.preferPost&&capabilities.post){data=await post(action,params)}else if(opts.tryPost){try{data=await post(action,params);capabilities.post=true}catch(_){data=await jsonp(action,params)}}else data=await jsonp(action,params);if(ttl)putCache(key,data);return data})();inflight.set(key,runner);try{return await runner}finally{inflight.delete(key)}}
   async function login(user,pass){/* Legacy-compatible login: the current Apps Script authenticates via JSONP/GET. Do not probe POST first, because some legacy deployments return {ok:false} instead of a transport error. */const res=await request('login',{user,pass},{dedupe:false});const caps=res&&res.capabilities||res&&res.app&&res.app.capabilities||{};capabilities={post:!!(caps.post||res&&res.transport==='post'),reservations:!!caps.reservations,secureSession:!!(caps.secureSession||res&&res.token)};return res}
   function attachAuth(params={}){const s=Session.get();if(s&&s.token)return {...params,token:s.token};return params}
@@ -24,10 +24,10 @@
     summary:()=>request('summary',attachAuth(),{ttl:20000}),
     dashboard:(ready=false)=>request('getDashboardClients',attachAuth({ready:ready?'true':'false'}),{ttl:12000}),
     clientModels:(client,ready=false)=>request('getClientModels',attachAuth({client,ready:ready?'true':'false'}),{ttl:18000}),
-    models:(force=false)=>request('getModelsByPrefix',attachAuth(force?{force:'true'}:{}),{ttl:force?0:12000,dedupe:!force}),
+    models:()=>request('getModelsByPrefix',attachAuth(),{ttl:30000}),
     prices:async()=>{const params=attachAuth();let res=await request('getModelPrices',params,{ttl:3000,dedupe:false});if(res&&res.ok===false&&/إجراء غير معروف|unknown action/i.test(String(res.error||'')))res=await request('prices',params,{ttl:3000,dedupe:false});return res},
-    search:q=>request('searchClients',attachAuth({q}),{ttl:12000}),
-    async deliver(client,items){const requestId=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():'d_'+Date.now()+'_'+Math.random().toString(36).slice(2);const params=attachAuth({client,items:encodeItems(items),requestId});let res;if(capabilities.post){try{res=await post('deliver',params)}catch(_){res=await jsonp('deliver',params)}}else res=await jsonp('deliver',params);clear();return res},
+    search:q=>request('searchClients',attachAuth({q}),{ttl:60000}),
+    async deliver(client,items){const res=await request('deliver',attachAuth({client,items:encodeItems(items)}),{preferPost:capabilities.post,dedupe:false});clear();return res},
     async reserve(client,invoice,items){if(!capabilities.reservations)return {ok:false,unsupported:true};const res=await request('reserveStock',attachAuth({client,invoice:invoice||'',items:encodeItems(items)}),{preferPost:capabilities.post,dedupe:false});clear();return res},
     async releaseReservation(client,invoice,model){if(!capabilities.reservations)return {ok:false,unsupported:true};const res=await request('releaseReservation',attachAuth({client,invoice:invoice||'',model}),{preferPost:capabilities.post,dedupe:false});clear();return res},
     readData

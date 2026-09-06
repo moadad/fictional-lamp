@@ -9,8 +9,7 @@ const SHEETS = {
 
 const APP_INFO = {
   title: 'Jood Orders Pro',
-  version: '2026.09.06-fast-search-model-complete-v6',
-  capabilities: { post: true, reservations: false, secureSession: false }
+  version: '2026.09.06-delivery-completed-warehouse-search'
 };
 
 const CACHE_SECONDS = 15;
@@ -66,7 +65,7 @@ function doGet(e) {
       case 'models':
         payload = {
           ok: true,
-          data: getModelsByPrefix(_bool_(p.force))
+          data: getModelsByPrefix()
         };
         break;
 
@@ -87,7 +86,7 @@ function doGet(e) {
 
       case 'deliver': {
         const items = _parseItems_(p.items);
-        const delivered = deliverModels(p.client, items, p.requestId);
+        const delivered = deliverModels(p.client, items);
         payload = {
           ok: true,
           delivered: delivered,
@@ -109,34 +108,33 @@ function doGet(e) {
   }
 }
 
-function _postBody_(e) {
-  const params = (e && e.parameter) || {};
-  const raw = (e && e.postData && e.postData.contents) || '';
-  if (!raw) return params;
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-  } catch (_) {}
-
-  // fetch() في الواجهة يرسل application/x-www-form-urlencoded لتجنب preflight.
-  // Apps Script يضع هذه القيم مباشرة في e.parameter.
-  return params;
-}
-
 function doPost(e) {
   try {
-    const body = _postBody_(e);
+    let body = {};
+    const raw = (e && e.postData && e.postData.contents) || '';
+    if (raw) {
+      try {
+        body = JSON.parse(raw);
+      } catch (_) {
+        // api.js may send application/x-www-form-urlencoded. Apps Script exposes it through e.parameter.
+        body = (e && e.parameter) || {};
+      }
+    } else {
+      body = (e && e.parameter) || {};
+    }
+
     const action = _norm_(body.action);
 
     switch (action) {
       case 'deliver':
-      case 'deliverModels':
+      case 'deliverModels': {
+        const items = Array.isArray(body.items) ? body.items : _parseItems_(body.items);
         return _json_({
           ok: true,
-          delivered: deliverModels(body.client, _parseItems_(body.items), body.requestId),
+          delivered: deliverModels(body.client, items),
           data: getSummaryStats(true)
         });
+      }
 
       case 'login':
         return _json_(login(body.user, body.pass));
@@ -166,7 +164,7 @@ function doPost(e) {
       case 'models':
         return _json_({
           ok: true,
-          data: getModelsByPrefix(_bool_(body.force))
+          data: getModelsByPrefix()
         });
 
       case 'getModelPrices':
@@ -315,13 +313,10 @@ function _cachePutJson_(key, value, seconds) {
 function _clearCache_() {
   const keys = [
     'stock',
-    'orders',
     'out',
     'dashboard_all',
     'dashboard_ready',
     'modelsByPrefix',
-    'search_index',
-    'prices',
     'summary'
   ];
   try {
@@ -605,22 +600,12 @@ function login(user, pass) {
         ok: true,
         role: _norm_(row[cRole]),
         user: u,
-        app: APP_INFO,
-        capabilities: APP_INFO.capabilities
+        app: APP_INFO
       };
     }
   }
 
   return { ok: false };
-}
-
-function _deliveryNote_(required, delivered) {
-  const req = _num_(required);
-  const del = _num_(delivered);
-  if (del <= 0) return '';
-  if (req > 0 && del < req) return 'تم التسليم - أقل من المطلوب';
-  if (req > 0 && del > req) return 'تم التسليم - أكثر من المطلوب';
-  return 'تم التسليم';
 }
 
 function getDashboardClients(readyOnly, force) {
@@ -637,82 +622,65 @@ function getDashboardClients(readyOnly, force) {
   const result = [];
 
   orders.ordersByClientModel.forEach(function(modelsMap, client) {
-    const requiredAll = orders.totalRequiredByClient.get(client) || 0;
-    const deliveredAll = out.totalDeliveredByClient.get(client) || 0;
-    let activeRequired = 0;
-    let activeModelsCount = 0;
-    let completedRequired = 0;
-    const pendingModels = [];
-    const completedModels = [];
-    const readyModels = [];
+    let pendingRequired = 0;
+    let deliveredQtyTotal = 0;
+    let originalRequired = 0;
     let readyRequired = 0;
+    const readyModels = [];
+    const pendingModels = [];
+    const deliveredModels = [];
 
     modelsMap.forEach(function(req, model) {
-      const deliveredMap = out.deliveredByClientModel.get(client);
-      const del = (deliveredMap && deliveredMap.get(model)) || 0;
+      const del = (out.deliveredByClientModel.get(client) && out.deliveredByClientModel.get(client).get(model)) || 0;
+      originalRequired += req;
+      deliveredQtyTotal += del;
 
-      // قاعدة النظام الجديدة: أي كمية تسليم (> 0) تنهي الموديل بالكامل
-      // حتى لو كانت أقل/أكثر/مساوية للكمية المطلوبة.
+      // قاعدة العمل: أول كمية تسليم (> 0) تجعل الموديل مكتملًا مهما كانت أقل/تساوي/أكثر من المطلوب.
       if (del > 0) {
-        completedRequired += req;
-        completedModels.push({
-          model: model,
-          required: req,
-          delivered: del,
-          deliveryNote: _deliveryNote_(req, del)
-        });
+        deliveredModels.push(model);
         return;
       }
 
-      activeRequired += req;
-      activeModelsCount++;
       pendingModels.push(model);
+      pendingRequired += req;
 
       const qtyInStock = stock.stockQty.get(model) || 0;
-      if (qtyInStock > 0) {
+      if (stock.stockSet.has(model) && qtyInStock > 0) {
         readyRequired += req;
         readyModels.push(model);
       }
     });
-
-    const invoiceText = Array.from(orders.invoicesByClient.get(client) || []).join(', ');
-    const totalModels = modelsMap.size;
-    const completedCount = completedModels.length;
-    const modelStatus = completedCount === 0 ? 'لم يبدأ' : (activeModelsCount > 0 ? 'جزئي' : 'مكتمل');
 
     if (readyOnly) {
       if (readyModels.length === 0) return;
       result.push({
         client: client,
         required: readyRequired,
-        activeRequired: activeRequired,
-        delivered: deliveredAll,
+        delivered: deliveredQtyTotal,
         remaining: readyRequired,
-        status: modelStatus,
-        invoices: invoiceText,
+        status: 'جاهز',
+        invoices: Array.from(orders.invoicesByClient.get(client) || []).join(', '),
         readyModels: readyModels,
         pendingModels: pendingModels,
-        completedModels: completedModels,
-        totalModels: totalModels,
-        activeModelsCount: activeModelsCount,
-        completedModelsCount: completedCount
+        deliveredModels: deliveredModels,
+        totalModels: pendingModels.length,
+        originalTotalModels: modelsMap.size,
+        originalRequired: originalRequired
       });
     } else {
       result.push({
         client: client,
-        required: requiredAll,
-        activeRequired: activeRequired,
-        completedRequired: completedRequired,
-        delivered: deliveredAll,
-        remaining: activeRequired,
-        status: modelStatus,
-        invoices: invoiceText,
+        required: pendingRequired,
+        delivered: deliveredQtyTotal,
+        remaining: pendingRequired,
+        status: pendingModels.length ? (deliveredModels.length ? 'جزئي' : 'لم يبدأ') : (deliveredModels.length ? 'مكتمل' : 'لم يبدأ'),
+        invoices: Array.from(orders.invoicesByClient.get(client) || []).join(', '),
         readyModels: readyModels,
         pendingModels: pendingModels,
-        completedModels: completedModels,
-        totalModels: totalModels,
-        activeModelsCount: activeModelsCount,
-        completedModelsCount: completedCount
+        deliveredModels: deliveredModels,
+        totalModels: pendingModels.length,
+        originalTotalModels: modelsMap.size,
+        originalRequired: originalRequired
       });
     }
   });
@@ -737,16 +705,23 @@ function getClientModels(client, readyOnly) {
 
   const res = [];
   modelsMap.forEach(function(req, model) {
-    const deliveredMap = out.deliveredByClientModel.get(c);
-    const del = (deliveredMap && deliveredMap.get(model)) || 0;
-    const completed = del > 0;
-    const rem = completed ? 0 : req;
+    const del = (out.deliveredByClientModel.get(c) && out.deliveredByClientModel.get(c).get(model)) || 0;
+    const delivered = del > 0;
+    const rem = delivered ? 0 : req;
     const stockNow = stock.stockQty.get(model) || 0;
-    const availableQty = completed ? 0 : Math.max(0, Math.min(req, stockNow));
-    const inStock = stockNow > 0;
+    const availableQty = delivered ? 0 : Math.max(0, Math.min(req, stockNow));
+    const inStock = stock.stockSet.has(model) && stockNow > 0;
 
     if (readyOnly) {
-      if (completed || !inStock || availableQty <= 0) return;
+      if (delivered) return;
+      if (!inStock || availableQty <= 0) return;
+    }
+
+    let deliveryNote = '';
+    if (delivered) {
+      if (del < req) deliveryNote = 'تم التسليم - أقل من المطلوب';
+      else if (del > req) deliveryNote = 'تم التسليم - أكثر من المطلوب';
+      else deliveryNote = 'تم التسليم';
     }
 
     res.push({
@@ -757,31 +732,23 @@ function getClientModels(client, readyOnly) {
       stockQty: stockNow,
       availableToDeliver: availableQty,
       available: inStock,
-      completed: completed,
       availabilityText: inStock ? 'متوفر' : 'غير متوفر',
-      deliveryNote: _deliveryNote_(req, del)
+      deliveryNote: deliveryNote,
+      completed: delivered
     });
   });
 
   return res.sort(function(a, b) {
     if (!!a.completed !== !!b.completed) return a.completed ? 1 : -1;
-    if ((b.remaining || 0) !== (a.remaining || 0)) return (b.remaining || 0) - (a.remaining || 0);
     return String(a.model).localeCompare(String(b.model), 'ar', { numeric: true });
   });
 }
 
-function deliverModels(client, items, requestId) {
+function deliverModels(client, items) {
   const c = _norm_(client);
   if (!c) throw new Error('اسم العميل فارغ');
 
-  const rid = _norm_(requestId);
-  const replayKey = rid ? ('delivery_' + rid) : '';
-  if (replayKey) {
-    const replay = _cacheGetJson_(replayKey);
-    if (replay) return replay;
-  }
-
-  // دمج أي تكرار لنفس الموديل في الطلب الواحد.
+  // دمج أي تكرار لنفس الموديل في الطلب المرسل لتجنب خصم المخزون مرتين بطريقة غير محسوبة.
   const itemMap = new Map();
   (items || []).forEach(function(it) {
     const model = _norm_(it && it.model);
@@ -789,8 +756,8 @@ function deliverModels(client, items, requestId) {
     if (!model || qty <= 0) return;
     itemMap.set(model, (itemMap.get(model) || 0) + qty);
   });
-  const normalizedItems = Array.from(itemMap.entries()).map(function(x) {
-    return { model: x[0], qty: x[1] };
+  const normalizedItems = Array.from(itemMap.entries()).map(function(pair) {
+    return { model: pair[0], qty: pair[1] };
   });
 
   if (normalizedItems.length === 0) throw new Error('لا توجد موديلات صحيحة للتسليم');
@@ -802,7 +769,7 @@ function deliverModels(client, items, requestId) {
   if (stockValues.length < 2) throw new Error('شيت المخزون فارغ');
 
   const orders = _loadOrders_(true);
-  let outState = _loadOut_(true);
+  const outState = _loadOut_(true);
   const cInv = _colOrFallback_(out.idx, 'invoice', 0);
   const cDate = _colOrFallback_(out.idx, 'date', 1);
   const cClient = _colOrFallback_(out.idx, 'client', 2);
@@ -811,6 +778,7 @@ function deliverModels(client, items, requestId) {
   const STOCK_MODEL_COL = 0;
   const STOCK_QTY_COL = 2;
   const now = new Date();
+
   const clientModels = orders.ordersByClientModel.get(c);
   if (!clientModels) throw new Error('العميل غير موجود في الطلبيات');
 
@@ -818,63 +786,47 @@ function deliverModels(client, items, requestId) {
   lock.waitLock(30000);
 
   try {
-    if (replayKey) {
-      const replayAfterLock = _cacheGetJson_(replayKey);
-      if (replayAfterLock) return replayAfterLock;
-    }
-
-    // إعادة قراءة الصادر بعد الحصول على القفل تمنع جهازين من تسليم نفس موديل العميل في نفس اللحظة.
-    outState = _loadOut_(true);
-
-    // نعيد قراءة المخزون داخل القفل لمنع التعارض بين جهازين.
-    const freshStockValues = _getAll_(stockSh);
-    const stockRows = freshStockValues.slice(1);
-    const qtyColumn = stockRows.map(function(row) { return [_num_(row[STOCK_QTY_COL])]; });
+    // نعيد قراءة المخزون بعد أخذ القفل حتى لا نعتمد على قيمة قديمة من طلب متزامن.
+    const lockedStockValues = _getAll_(stockSh);
     const stockMap = new Map();
-
-    stockRows.forEach(function(row, i) {
+    lockedStockValues.slice(1).forEach(function(row, i) {
       const model = _norm_(row[STOCK_MODEL_COL]);
       if (!model) return;
-      if (!stockMap.has(model)) stockMap.set(model, { qty: 0, indexes: [] });
-      const x = stockMap.get(model);
-      x.qty += _num_(row[STOCK_QTY_COL]);
-      x.indexes.push(i);
+      const qty = _num_(row[STOCK_QTY_COL]);
+      if (!stockMap.has(model)) stockMap.set(model, { qty: 0, rows: [] });
+      const item = stockMap.get(model);
+      item.qty += qty;
+      item.rows.push({ rowNumber: i + 2, qty: qty });
     });
 
     normalizedItems.forEach(function(it) {
       const orderedQty = clientModels.get(it.model) || 0;
       if (orderedQty <= 0) throw new Error('الموديل غير موجود في طلبية العميل: ' + it.model);
 
-      const deliveredMap = outState.deliveredByClientModel.get(c);
-      const deliveredQty = (deliveredMap && deliveredMap.get(it.model)) || 0;
-      if (deliveredQty > 0) {
-        throw new Error('هذا الموديل تم تسليمه بالفعل ويظهر في مكتمل: ' + it.model);
-      }
+      const deliveredQty = (outState.deliveredByClientModel.get(c) && outState.deliveredByClientModel.get(c).get(it.model)) || 0;
+      if (deliveredQty > 0) throw new Error('هذا الموديل موجود بالفعل في المكتمل: ' + it.model);
 
+      // مسموح أن تكون كمية التسليم أقل أو تساوي أو أكثر من الكمية المطلوبة.
       const stockItem = stockMap.get(it.model);
       if (!stockItem) throw new Error('الموديل غير موجود في المخزون: ' + it.model);
       if (stockItem.qty < it.qty) {
-        throw new Error('الكمية غير كافية للموديل ' + it.model + ' | المتاح: ' + stockItem.qty + ' | المطلوب للتسليم: ' + it.qty);
+        throw new Error('الكمية غير كافية بالمخزون للموديل ' + it.model + ' | المخزون: ' + stockItem.qty + ' | التسليم: ' + it.qty);
       }
     });
 
-    // خصم المخزون في الذاكرة أولاً، ثم كتابة عمود الكمية مرة واحدة فقط (أسرع بكثير).
     normalizedItems.forEach(function(it) {
       const stockItem = stockMap.get(it.model);
-      let left = it.qty;
-      stockItem.indexes.forEach(function(idx) {
-        if (left <= 0) return;
-        const current = _num_(qtyColumn[idx][0]);
-        const take = Math.min(current, left);
-        qtyColumn[idx][0] = current - take;
-        left -= take;
+      let toDeduct = it.qty;
+      stockItem.rows.forEach(function(part) {
+        if (toDeduct <= 0) return;
+        const take = Math.min(part.qty, toDeduct);
+        if (take <= 0) return;
+        part.qty -= take;
+        toDeduct -= take;
+        stockSh.getRange(part.rowNumber, STOCK_QTY_COL + 1).setValue(part.qty);
       });
       stockItem.qty -= it.qty;
     });
-
-    if (qtyColumn.length) {
-      stockSh.getRange(2, STOCK_QTY_COL + 1, qtyColumn.length, 1).setValues(qtyColumn);
-    }
 
     const rowsToAppend = normalizedItems.map(function(it) {
       const row = new Array(Math.max(5, out.hdr.length)).fill('');
@@ -891,39 +843,19 @@ function deliverModels(client, items, requestId) {
     }
 
     _clearCache_();
-    const deliveredResult = normalizedItems.map(function(it) {
-      return {
-        model: it.model,
-        qty: it.qty,
-        completed: true,
-        requested: clientModels.get(it.model) || 0,
-        deliveryNote: _deliveryNote_(clientModels.get(it.model) || 0, it.qty)
-      };
-    });
-    if (replayKey) _cachePutJson_(replayKey, deliveredResult, 600);
-    return deliveredResult;
+    return normalizedItems;
   } finally {
     lock.releaseLock();
   }
 }
 
-function _searchNorm_(v) {
-  return _norm_(v)
-    .toLowerCase()
-    .replace(/[٠-٩]/g, function(d) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)); })
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/[\s\-_/\\.,،;:]+/g, ' ')
-    .trim();
-}
-
-function _getSearchIndex_(force) {
+function _loadSearchIndex_(force) {
   if (!force) {
     const cached = _cacheGetJson_('search_index');
     if (cached) return cached;
   }
 
+  // البحث لا يحتاج المخزون أو الصادر؛ يكفي شيت الطلبيات، وهذا يجعله أخف بكثير.
   const orders = _loadOrders_(force);
   const index = [];
   orders.ordersByClientModel.forEach(function(_, client) {
@@ -931,34 +863,33 @@ function _getSearchIndex_(force) {
     index.push({
       client: client,
       invoices: invoices.join(', '),
-      search: _searchNorm_([client].concat(invoices).join(' '))
+      search: _norm_([client].concat(invoices).join(' ')).toLowerCase()
     });
   });
-
   _cachePutJson_('search_index', index, 60);
   return index;
 }
 
 function searchClients(keyword) {
-  const k = _searchNorm_(keyword);
+  const k = _norm_(keyword).toLowerCase();
   if (!k) return [];
-
   const tokens = k.split(/\s+/).filter(Boolean);
-  return _getSearchIndex_(false)
+
+  return _loadSearchIndex_(false)
     .map(function(x) {
-      const text = x.search || '';
+      const s = x.search || '';
       let score = 0;
-      if (text === k) score = 100;
-      else if (text.indexOf(k) === 0) score = 80;
-      else if (tokens.length && tokens.every(function(t) { return text.indexOf(t) !== -1; })) score = 60;
-      else if (text.indexOf(k) !== -1) score = 40;
+      if (s === k) score = 100;
+      else if (s.indexOf(k) === 0) score = 80;
+      else if (tokens.every(function(t) { return s.indexOf(t) !== -1; })) score = 60;
+      else if (s.indexOf(k) !== -1) score = 40;
       return { x: x, score: score };
     })
-    .filter(function(x) { return x.score > 0; })
-    .sort(function(a, b) { return b.score - a.score || String(a.x.client).localeCompare(String(b.x.client), 'ar'); })
+    .filter(function(v) { return v.score > 0; })
+    .sort(function(a, b) { return b.score - a.score; })
     .slice(0, 50)
-    .map(function(x) {
-      return { client: x.x.client, invoices: x.x.invoices };
+    .map(function(v) {
+      return { client: v.x.client, invoices: v.x.invoices };
     });
 }
 
@@ -974,29 +905,28 @@ function getModelsByPrefix(force) {
   const data = {};
 
   orders.ordersByClientModel.forEach(function(modelsMap, client) {
-    const deliveredMap = out.deliveredByClientModel.get(client);
     modelsMap.forEach(function(qty, model) {
       if (!model) return;
+      const deliveredQty = (out.deliveredByClientModel.get(client) && out.deliveredByClientModel.get(client).get(model)) || 0;
 
-      // الموديل الذي تم تسليم أي كمية منه يخرج فوراً من تشغيل المخزن.
-      const delivered = (deliveredMap && deliveredMap.get(model)) || 0;
-      if (delivered > 0) return;
+      // الموديل الذي تم تسليم أي كمية منه ينتقل إلى المكتمل، فلا يبقى ضمن المطلوب في المخزن.
+      if (deliveredQty > 0) return;
 
-      const n = Number(model);
-      const prefix = (!isNaN(n) && n < 1000) ? model.substring(0, 1) : model.substring(0, 2);
+      const modelNum = Number(model);
+      const prefix = (!isNaN(modelNum) && modelNum < 1000) ? model.substring(0, 1) : model.substring(0, 2);
       if (!data[prefix]) data[prefix] = {};
       if (!data[prefix][model]) data[prefix][model] = { total: 0, clients: [] };
 
       data[prefix][model].total += qty;
-      data[prefix][model].clients.push({ client: client, qty: qty, required: qty, delivered: 0, remaining: qty });
+      data[prefix][model].clients.push({ client: client, qty: qty });
     });
   });
 
   const result = {};
   Object.keys(data).forEach(function(prefix) {
     result[prefix] = Object.keys(data[prefix]).map(function(model) {
-      const total = data[prefix][model].total;
       const stockQty = stock.stockQty.get(model) || 0;
+      const total = data[prefix][model].total;
       return {
         model: model,
         total: total,
