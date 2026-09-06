@@ -9,7 +9,7 @@ const SHEETS = {
 
 const APP_INFO = {
   title: 'Jood Orders Pro',
-  version: '2026.09.07-live-warehouse-v6'
+  version: '2026.09.07-live-warehouse-v6.1-stock-fix'
 };
 
 const CACHE_SECONDS = 15;
@@ -248,10 +248,19 @@ function _getAll_(sh) {
   return sh.getRange(1, 1, lr, lc).getValues();
 }
 
+function _normHeader_(v) {
+  return _norm_(v)
+    .toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[\s\-_/\\.,،;:()]+/g, '');
+}
+
 function _headerIndexMap_(headersRow) {
   const map = {};
   headersRow.forEach(function(h, i) {
-    const key = _norm_(h);
+    const key = _normHeader_(h);
     if (key) map[key] = i;
   });
   return map;
@@ -259,7 +268,8 @@ function _headerIndexMap_(headersRow) {
 
 function _findCol_(hdrMap, candidates) {
   for (var i = 0; i < candidates.length; i++) {
-    if (Object.prototype.hasOwnProperty.call(hdrMap, candidates[i])) return hdrMap[candidates[i]];
+    const key = _normHeader_(candidates[i]);
+    if (Object.prototype.hasOwnProperty.call(hdrMap, key)) return hdrMap[key];
   }
   return -1;
 }
@@ -267,6 +277,36 @@ function _findCol_(hdrMap, candidates) {
 function _colOrFallback_(idx, key, fallbackIndex) {
   const v = idx[key];
   return (typeof v === 'number' && v >= 0) ? v : fallbackIndex;
+}
+
+function _detectNumericColumn_(smart, excludeIndex, preferredIndex) {
+  if (!smart || !Array.isArray(smart.data) || !smart.data.length) return preferredIndex;
+  const width = smart.hdr ? smart.hdr.length : (smart.data[0] || []).length;
+  let best = -1, bestScore = -1;
+  for (let c = 0; c < width; c++) {
+    if (c === excludeIndex) continue;
+    let numeric = 0, nonEmpty = 0;
+    smart.data.slice(0, 80).forEach(function(row) {
+      const raw = row[c];
+      if (_norm_(raw) === '') return;
+      nonEmpty++;
+      const cleaned = String(raw).replace(/,/g, '').trim();
+      if (cleaned !== '' && isFinite(Number(cleaned))) numeric++;
+    });
+    if (!nonEmpty) continue;
+    let score = (numeric / nonEmpty) * 100 + numeric;
+    if (c === preferredIndex) score += 3;
+    if (score > bestScore) { bestScore = score; best = c; }
+  }
+  return best >= 0 ? best : preferredIndex;
+}
+
+function _stockColumns_(stock) {
+  const cModel = _colOrFallback_(stock.idx, 'model', 0);
+  const cQty = (typeof stock.idx.qty === 'number' && stock.idx.qty >= 0)
+    ? stock.idx.qty
+    : _detectNumericColumn_(stock, cModel, 2);
+  return { model: cModel, qty: cQty };
 }
 
 function _readSheetSmart_(sheetName, headerCandidates) {
@@ -342,8 +382,8 @@ const OUT_COLS = {
 };
 
 const STOCK_COLS = {
-  model: ['الموديل', 'رقم الموديل', 'رمز الصنف', 'كود الصنف', 'الصنف'],
-  qty: ['الكميه', 'الكمية', 'كمية', 'المخزون', 'متاح'],
+  model: ['الموديل', 'موديل', 'رقم الموديل', 'رقم الموديل المطلوب', 'رمز الصنف', 'كود الصنف', 'الصنف', 'رقم الصنف'],
+  qty: ['الكميه', 'الكمية', 'كمية', 'المخزون', 'كمية المخزون', 'كميه المخزون', 'رصيد المخزون', 'الرصيد', 'رصيد', 'متاح', 'المتاح', 'الكمية المتاحة', 'الكميه المتاحه', 'الكمية الحالية', 'الرصيد الحالي'],
 };
 
 const USER_COLS = {
@@ -423,8 +463,9 @@ function _loadStock_(force) {
   }
 
   const stock = _readSheetSmart_(SHEETS.STOCK, STOCK_COLS);
-  const cModel = _colOrFallback_(stock.idx, 'model', 0);
-  const cQty = _colOrFallback_(stock.idx, 'qty', 2);
+  const stockCols = _stockColumns_(stock);
+  const cModel = stockCols.model;
+  const cQty = stockCols.qty;
 
   const stockSet = new Set();
   const stockQty = new Map();
@@ -776,8 +817,9 @@ function deliverModels(client, items) {
   const cClient = _colOrFallback_(out.idx, 'client', 2);
   const cModel = _colOrFallback_(out.idx, 'model', 3);
   const cQty = _colOrFallback_(out.idx, 'qty', 4);
-  const STOCK_MODEL_COL = _colOrFallback_(stockSmart.idx, 'model', 0);
-  const STOCK_QTY_COL = _colOrFallback_(stockSmart.idx, 'qty', 2);
+  const stockCols = _stockColumns_(stockSmart);
+  const STOCK_MODEL_COL = stockCols.model;
+  const STOCK_QTY_COL = stockCols.qty;
   const now = new Date();
 
   const clientModels = orders.ordersByClientModel.get(c);

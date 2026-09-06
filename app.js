@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));const arNum=v=>String(v??'').replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)]);const natural=(a,b)=>String(a?.model??a??'').localeCompare(String(b?.model??b??''),'ar',{numeric:true,sensitivity:'base'});
-const state={user:null,ready:false,status:'all',clients:[],allClients:[],clientCache:new Map(),currentClient:'',currentOrderView:'active',currentRows:[],currentFullRows:[],currentModel:null,warehouseGroups:{},warehouseRows:[],warehouseFilter:'all',warehouseLoadedAt:0,warehouseLoadError:'',history:[],searchIndex:[],searchTimer:null,searchServerTimer:null,modelFilter:'',priceFilter:'',prices:{},pricesLoadedAt:0,pricesError:'',capabilities:{}};
+const state={user:null,ready:false,status:'all',clients:[],allClients:[],clientCache:new Map(),currentClient:'',currentOrderView:'active',currentRows:[],currentFullRows:[],currentModel:null,warehouseGroups:{},warehouseRows:[],warehouseFilter:'all',warehouseLoadedAt:0,warehouseLoadError:'',warehouseStockFallback:false,history:[],searchIndex:[],searchTimer:null,searchServerTimer:null,modelFilter:'',priceFilter:'',prices:{},pricesLoadedAt:0,pricesError:'',capabilities:{}};
 function normalize(s){return String(s??'').toLowerCase().trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[\s\-_/\\.,،;:]+/g,' ')}
 function fields(obj,names){for(const n of names){if(obj&&obj[n]!==undefined&&obj[n]!==null&&obj[n]!=='')return obj[n]}return ''}
 function invoiceValues(client,rows=[]){const vals=[];const add=v=>String(v??'').split(/[,،;|\n]+/).map(x=>x.trim()).filter(Boolean).forEach(x=>{if(!vals.includes(x))vals.push(x)});add(fields(client,['invoices','invoice','invoiceNo','invoiceNumber','billNo']));rows.forEach(r=>add(fields(r,['invoices','invoice','invoiceNo','invoiceNumber','billNo'])));return vals}
@@ -156,7 +156,7 @@ const Dashboard={
     Dashboard.enrichModelTotals(state.status==='ready-full'?activeOrders:list)
   }
 };
-async function getClientRows(client,force=false){if(!force&&state.clientCache.has(client))return state.clientCache.get(client);const r=await Api.clientModels(client,false);const rows=Api.readData(r)||[];state.clientCache.set(client,rows);return rows}
+async function getClientRows(client,force=false){if(!force&&state.clientCache.has(client))return state.clientCache.get(client);const r=await Api.clientModels(client,false,force);const rows=Api.readData(r)||[];state.clientCache.set(client,rows);return rows}
 
 const Orders={
   openEncoded(v,view='active'){return Orders.open(decodeURIComponent(v),false,view)},
@@ -204,7 +204,7 @@ const Orders={
   openCurrentFromProfile(){Orders.open(state.currentClient,false,'active')}
 };
 const ClientProfile={openEncoded(v){return ClientProfile.open(decodeURIComponent(v))},openCurrent(){return ClientProfile.open(state.currentClient)},async open(client){state.currentClient=client;UI.screen('clientProfileScreen');UI.showLoading('جاري تجهيز ملف العميل...');try{const rows=(await getClientRows(client)).sort(natural);const c=clientObj(client),invList=invoiceValues(c,rows),tot=rows.reduce((a,r)=>(a.req+=num(r.required),a.del+=num(r.delivered),a.rem+=effectiveRemaining(r),a.stock+=num(stockValue(r)||0),a),{req:0,del:0,rem:0,stock:0}),reserved=Reservations.totalForClient(client);$('profileHero').innerHTML=`<div><div class="profile-name">${esc(client)}</div><div class="profile-invoices">${invList.length?(invList.length>1?'الفواتير: ':'الفاتورة: ')+esc(invList.join('، ')):'لا يوجد رقم فاتورة ظاهر في البيانات'}</div><div class="client-meta">${esc(fields(c,['phone','mobile','telephone'])||'')}</div></div><div class="client-actions no-print"><button class="soft-btn" onclick="Orders.openCurrentFromProfile()">فتح الطلبية</button><button class="soft-btn" onclick="Search.openWith('${encodeURIComponent(client)}')">بحث باسم العميل</button></div>`;$('profileStats').innerHTML=statCard('إجمالي المطلوب',tot.req)+statCard('إجمالي المسلّم',tot.del)+statCard('إجمالي المتبقي',tot.rem)+statCard('المحجوز',reserved);$('profileInvoices').innerHTML=invList.length?`<div class="invoice-list">${invList.map((v,i)=>`<div class="invoice-item"><span>فاتورة ${arNum(i+1)}</span><span class="invoice-no">${esc(v)}</span></div>`).join('')}</div>`:'<div class="empty">لا توجد أرقام فواتير متاحة</div>';const readyCount=rows.filter(r=>!isModelDelivered(r)&&effectiveRemaining(r)>0&&availableAfterReservations(r.model,stockValue(r))>0).length;$('profileInventory').innerHTML=`<div class="inventory-mini"><div><span>عدد الموديلات</span><strong>${arNum(rows.length)}</strong></div><div><span>قابل للتجهيز</span><strong>${arNum(readyCount)}</strong></div><div><span>إجمالي الحجز</span><strong>${reserved}</strong></div><div><span>متبقي غير محجوز</span><strong>${Math.max(0,tot.rem-reserved)}</strong></div></div>`;$('profileModelsBody').innerHTML=rows.map((r,i)=>{const stock=stockValue(r),q=Reservations.qty(client,invoiceText(c,rows),r.model),avail=availableAfterReservations(r.model,stock),rem=effectiveRemaining(r),s=isModelDelivered(r)?deliveryLabel(r):q>=rem&&rem>0?'محجوز بالكامل':avail>0&&rem>0?'قابل للتجهيز':'بانتظار المخزون';return `<tr><td>${arNum(i+1)}</td><td>${esc(r.model)}</td><td>${num(r.required)}</td><td>${num(r.delivered)}</td><td>${rem}</td><td>${q}</td><td>${stock===null?'-':Math.max(0,avail)}</td><td>${esc(s)}</td></tr>`}).join('');Print.header('profilePrintHeader','ملف العميل','Jood Kids',{'اسم العميل':client,'الفواتير':invList.join('، ')||'-','عدد الموديلات':arNum(rows.length),'تاريخ الطباعة':new Date().toLocaleDateString('ar-EG')})}catch(e){$('profileHero').innerHTML=`<div class="empty">${esc(e.message)}</div>`}finally{UI.hideLoading()}}};
-function stockValue(r){const v=fields(r,['stockQty','stock','availableStock','warehouseQty']);return v===''?null:num(v)}function stockForModel(r){const direct=stockValue(r);if(direct!==null)return direct;const model=String(r?.model??'');const wh=state.warehouseRows.find(x=>String(x.model)===model);return wh?stockValue(wh):null}function warehouseAvailabilityLabel(r){const stock=stockForModel(r);return stock!==null&&stock>0?'متاح في المخزن':'غير متاح في المخزن'}function stockDisplay(v){return v===null?'<span class="stock-unknown">غير ظاهر</span>':String(v)}
+function stockValue(r){const v=fields(r,['stockQty','stock','availableStock','warehouseQty','stockQuantity','inventoryQty','inventory','qtyInStock','onHand','onHandQty']);return v===''?null:num(v)}function stockForModel(r){const direct=stockValue(r);if(direct!==null)return direct;const model=String(r?.model??'');const wh=state.warehouseRows.find(x=>String(x.model)===model);return wh?stockValue(wh):null}function warehouseAvailabilityLabel(r){const stock=stockForModel(r);return stock!==null&&stock>0?'متاح في المخزن':'غير متاح في المخزن'}function stockDisplay(v){return v===null?'<span class="stock-unknown">غير ظاهر</span>':String(v)}
 function parseWarehouse(data){const rows=[];Object.keys(data||{}).sort((a,b)=>String(a).localeCompare(String(b),'ar',{numeric:true})).forEach(prefix=>(data[prefix]||[]).sort(natural).forEach(m=>rows.push({...m,prefix})));return rows}
 const Warehouse={
   async preload(force=false){
@@ -216,6 +216,8 @@ const Warehouse={
       if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('بيانات المخزن غير صالحة');
       state.warehouseGroups=payload;
       state.warehouseRows=parseWarehouse(payload);
+      state.warehouseStockFallback=false;
+      if(force&&state.warehouseRows.some(m=>stockValue(m)===null))await Warehouse.enrichMissingStock(true);
       state.warehouseLoadedAt=Date.now();
       state.warehouseLoadError='';
       return state.warehouseRows
@@ -224,6 +226,30 @@ const Warehouse={
       if(!state.warehouseRows.length){state.warehouseGroups={};state.warehouseRows=[]}
       return state.warehouseRows
     }
+  },
+  async enrichMissingStock(force=false){
+    let missing=state.warehouseRows.filter(m=>stockValue(m)===null);
+    if(!missing.length)return;
+    const fetched=new Set(),stockMap=new Map();
+    for(let pass=0;pass<3&&missing.length;pass++){
+      const clients=[];
+      missing.forEach(m=>{
+        const list=(m.clients||[]).map(x=>String(x?.client??'').trim()).filter(Boolean);
+        const client=list[pass]||list[0];
+        if(client&&!fetched.has(client)&&!clients.includes(client))clients.push(client)
+      });
+      if(!clients.length)break;
+      await mapLimit(clients,5,async client=>{
+        fetched.add(client);
+        try{
+          const rows=await getClientRows(client,force);
+          (rows||[]).forEach(r=>{const model=String(r?.model??'').trim(),st=stockValue(r);if(model&&st!==null)stockMap.set(model,st)})
+        }catch(_){ }
+      });
+      missing.forEach(m=>{const key=String(m.model??'').trim();if(stockMap.has(key))m.stockQty=stockMap.get(key)});
+      missing=missing.filter(m=>stockValue(m)===null)
+    }
+    if(stockMap.size)state.warehouseStockFallback=true
   },
   async open(){
     UI.screen('modelsScreen');
@@ -245,7 +271,7 @@ const Warehouse={
     if(sync){
       const last=state.warehouseLoadedAt?new Date(state.warehouseLoadedAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'-';
       sync.className='warehouse-sync-status'+(state.warehouseLoadError?' error':'');
-      sync.innerHTML=state.warehouseLoadError?`<strong>تعذر تحديث المخزن:</strong> ${esc(state.warehouseLoadError)} <button class="soft-btn" onclick="Warehouse.refresh()">إعادة المحاولة</button>`:`<span>● بيانات مباشرة من الخادم</span><span>آخر تحديث: ${esc(last)}</span>`
+      sync.innerHTML=state.warehouseLoadError?`<strong>تعذر تحديث المخزن:</strong> ${esc(state.warehouseLoadError)} <button class="soft-btn" onclick="Warehouse.refresh()">إعادة المحاولة</button>`:`<span>● ${state.warehouseStockFallback?'تم جلب المخزون من بيانات الموديلات للتوافق مع الخادم الحالي':'بيانات مباشرة من الخادم'}</span><span>آخر تحديث: ${esc(last)}</span>`
     }
     const q=normalize(state.modelFilter);let rows=state.warehouseRows.filter(m=>!q||normalize(m.model).includes(q)||(m.clients||[]).some(c=>normalize(c.client).includes(q)));
     rows=rows.filter(m=>{const balance=Warehouse.balance(m),reserved=Reservations.totalForModel(m.model);if(state.warehouseFilter==='shortage')return balance!==null&&balance<0;if(state.warehouseFilter==='ready')return balance!==null&&balance>=0;if(state.warehouseFilter==='reserved')return reserved>0;return true});
