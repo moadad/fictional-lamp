@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Jood Orders Pro</title>
   <meta name="theme-color" content="#155eef" />
+  <meta name="application-name" content="Jood Orders Pro" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Jood Orders" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="stylesheet" href="./styles.css?v=6.1.1" />
+  <link rel="stylesheet" href="./styles.css?v=6.3" />
 </head>
 <body>
   <div id="loading" class="loading hide">جاري التحميل...</div>
@@ -18,6 +24,7 @@
     <button class="item" onclick="App.openDashboard();UI.closeDrawer()">👥 العملاء</button>
     <button class="item" onclick="Warehouse.open();UI.closeDrawer()">📦 تشغيل المخزن</button>
     <button class="item" onclick="Search.open();UI.closeDrawer()">🔎 بحث العملاء والفواتير</button>
+    <button id="installAppBtn" class="item install-app-item" onclick="InstallApp.prompt()">⬇️ تثبيت البرنامج على الجهاز</button>
     <button class="item" onclick="Print.printCurrent()">🖨️ طباعة الشاشة</button>
     <div id="adminArea" class="hide admin-area">
       <h3>إعدادات الإدارة</h3>
@@ -161,7 +168,7 @@
   <div id="warehouseOrderPrintSheet" class="warehouse-order-print-sheet" aria-hidden="true"></div>
   <div id="readyInvoicePrintSheet" class="ready-invoice-print-sheet" aria-hidden="true"></div>
 
-  <script src="./api.js?v=6.1"></script>
-  <script src="./app.js?v=6.1.1"></script>
+  <script src="./api.js?v=6.3"></script>
+  <script src="./app.js?v=6.3"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ const SHEETS = {
 
 const APP_INFO = {
   title: 'Jood Orders Pro',
-  version: '2026.09.07-live-warehouse-v6.1-stock-fix'
+  version: '2026.09.15-v6.3-install-scroll-fix'
 };
 
 const CACHE_SECONDS = 15;
