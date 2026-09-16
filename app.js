@@ -76,7 +76,7 @@ const Prices={
   }
 };
 const Auth={async login(){const user=$('user').value.trim(),pass=$('pass').value.trim();if(!user||!pass){$('loginStatus').textContent='أدخل اسم المستخدم وكلمة المرور';return}$('loginBtn').disabled=true;$('loginStatus').textContent='جاري التحقق...';try{const res=await Api.login(user,pass);if(!res||!res.ok){$('loginStatus').textContent='بيانات الدخول غير صحيحة';return}state.user={user:res.user||user,role:res.role||'',token:res.token||'',app:res.app||null};Session.set(state.user);$('pass').value='';Auth.enter()}catch(e){$('loginStatus').textContent=e.message||'تعذر تسجيل الدخول'}finally{$('loginBtn').disabled=false}},logout(){Session.clear();state.user=null;state.history=[];$('appScreen').classList.add('hide');$('loginScreen').classList.remove('hide');$('pass').value='';UI.closeDrawer()},isAdmin(){const r=String(state.user?.role||'').toLowerCase();return r.includes('admin')||r.includes('ادمن')||r.includes('أدمن')||r.includes('مدير')},async enter(){$('loginScreen').classList.add('hide');$('appScreen').classList.remove('hide');$('appTitle').textContent=state.user?.app?.title||'Jood Orders Pro';$('adminArea').classList.toggle('hide',!Auth.isAdmin());$('apiUrlInput').value=Api.apiUrl();state.capabilities=Api.capabilities();Auth.renderSecurity();await App.boot()},renderSecurity(){const c=Api.capabilities();$('securityStatus').innerHTML=`الجلسة: ${c.secureSession?'Token من الخادم':'جلسة المتصفح فقط'}<br>الاتصال POST: ${c.post?'مدعوم':'وضع توافق JSONP'}<br>الحجز المركزي: ${c.reservations?'مدعوم من الخادم':'محلي على الجهاز حتى يفعّل الخادم الحجز'}`}};
-const App={async boot(){state.history=[];UI.screen('dashboardScreen');await Promise.all([Dashboard.summary(),Dashboard.load(false,true),Warehouse.preload()]);PriceBook.reload(true).catch(()=>{});Search.rebuildIndex();UI.status('جاهز')},goHome(){App.openDashboard()},openDashboard(){UI.screen('dashboardScreen');Dashboard.render()},back(){if(state.history.length>1)state.history.pop();const target=state.history.pop()||'dashboardScreen';UI.screen(target,true,true);if(target==='dashboardScreen')Dashboard.render()},async refreshAll(){UI.showLoading('جاري تحديث البيانات...');try{Api.clear();state.clientCache.clear();await Promise.all([Dashboard.summary(),Dashboard.load(state.ready,true),Warehouse.preload(true),PriceBook.reload(true).catch(()=>null)]);Search.rebuildIndex();if(state.currentClient&&$('clientScreen').classList.contains('active'))await Orders.open(state.currentClient,true);UI.status('تم التحديث')}finally{UI.hideLoading()}}};
+const App={async boot(){state.history=[];UI.screen('dashboardScreen');UI.showLoading('جاري تحميل العملاء...');try{await Dashboard.load(false,true,false);Dashboard.localSummary();Search.rebuildIndex();UI.status('جاهز');setTimeout(()=>Dashboard.summary().catch(()=>{}),800)}finally{UI.hideLoading()}},goHome(){App.openDashboard()},openDashboard(){UI.screen('dashboardScreen');Dashboard.render()},back(){if(state.history.length>1)state.history.pop();const target=state.history.pop()||'dashboardScreen';UI.screen(target,true,true);if(target==='dashboardScreen')Dashboard.render()},async refreshAll(){UI.showLoading('جاري تحديث البيانات...');try{Api.clear();state.clientCache.clear();await Dashboard.load(state.ready,true,true);Dashboard.localSummary();Search.rebuildIndex();Dashboard.summary().catch(()=>{});if(state.currentClient&&$('clientScreen').classList.contains('active'))await Orders.open(state.currentClient,true);UI.status('تم التحديث')}finally{UI.hideLoading()}}};
 function countModelValues(v){
   if(Array.isArray(v)){const set=new Set(v.map(x=>String(typeof x==='object'?(x.model??x.code??x.id??''):x).trim()).filter(Boolean));return set.size}
   if(typeof v==='string'){return new Set(v.split(/[,،;|\n]+/).map(x=>x.trim()).filter(Boolean)).size}
@@ -114,7 +114,7 @@ const Dashboard={
   _enriching:false,
   async summary(){try{const r=await Api.summary();const d=Api.readData(r)||{};$('summaryCards').innerHTML=statCard('كل العملاء',d.allClients||state.allClients.length)+statCard('العملاء الجاهزون',d.readyClients||0)+statCard('إجمالي المتبقي',d.totalRemaining||0)+statCard('إجمالي المخزون',d.stockQtyTotal||0)}catch(_){if(state.allClients.length)Dashboard.localSummary()}},
   localSummary(){$('summaryCards').innerHTML=statCard('كل العملاء',state.allClients.length)+statCard('المطلوب',state.allClients.reduce((a,c)=>a+num(c.required),0))+statCard('المسلّم',state.allClients.reduce((a,c)=>a+num(c.delivered),0))+statCard('المتبقي',state.allClients.reduce((a,c)=>a+num(c.remaining),0))},
-  async load(ready=false,silent=false){if(!silent)UI.showLoading('جاري تحميل العملاء...');try{const r=await Api.dashboard(ready);state.clients=Api.readData(r)||[];if(!ready){state.allClients=state.clients.slice()}else if(!state.allClients.length){const all=await Api.dashboard(false);state.allClients=Api.readData(all)||[]}Dashboard.render();Search.rebuildIndex()}catch(e){$('dashboardCards').innerHTML=`<div class="card empty">${esc(e.message)}</div>`}finally{if(!silent)UI.hideLoading()}},
+  async load(ready=false,silent=false,force=false){if(!silent)UI.showLoading('جاري تحميل العملاء...');try{const r=await Api.dashboard(ready,force);state.clients=Api.readData(r)||[];if(!ready){state.allClients=state.clients.slice()}else if(!state.allClients.length){const all=await Api.dashboard(false);state.allClients=Api.readData(all)||[]}Dashboard.render();Search.rebuildIndex()}catch(e){$('dashboardCards').innerHTML=`<div class="card empty">${esc(e.message)}</div>`}finally{if(!silent)UI.hideLoading()}},
   setReady(v){state.ready=!!v;state.status='all';state.currentOrderView='active';$('tabAll').classList.toggle('active',!state.ready);$('tabReady').classList.toggle('active',state.ready);Dashboard.load(state.ready)},
   setStatus(v){
     if(v==='done'&&state.ready){state.ready=false;state.status='done';$('tabAll').classList.add('active');$('tabReady').classList.remove('active');return Dashboard.load(false)}
@@ -197,7 +197,7 @@ const Orders={
       const r=await Api.deliver(state.currentClient,items);if(!r||r.ok===false)throw new Error(r?.error||r?.message||'تعذر التسليم');
       const activeInvoice=invoiceText(clientObj(state.currentClient),state.currentFullRows);for(const x of items)await Reservations.completeDelivery(state.currentClient,activeInvoice,x.model);
       state.clientCache.delete(state.currentClient);
-      await Promise.all([Warehouse.preload(true),Dashboard.load(state.ready,true),Dashboard.summary()]);
+      await Dashboard.load(state.ready,true,true);await Warehouse.preload(false);Dashboard.summary().catch(()=>{});
       await Orders.open(state.currentClient,true,'active');Dashboard.render();
       alert('تم التسليم بنجاح. أي كمية مسلّمة تعتبر الموديل مكتملًا، وتم تحديث المطلوب والمخزون تلقائيًا')
     }catch(e){alert(e.message||'تعذر تنفيذ التسليم')}finally{UI.hideLoading()}
@@ -254,9 +254,10 @@ const Warehouse={
   },
   async open(){
     UI.screen('modelsScreen');
-    UI.showLoading('جاري تحديث المخزن من الخادم...');
-    await Warehouse.preload(true);
-    UI.status(state.warehouseLoadError?'تعذر تحديث المخزن':'تم تحديث المخزن');
+    if(state.warehouseRows.length&&Date.now()-state.warehouseLoadedAt<60000){Warehouse.render();return}
+    UI.showLoading('جاري تحميل المخزن...');
+    await Warehouse.preload(false);
+    UI.status(state.warehouseLoadError?'تعذر تحميل المخزن':'تم تحميل المخزن');
     UI.hideLoading();Warehouse.render()
   },
   async refresh(){

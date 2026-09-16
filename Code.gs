@@ -9,10 +9,11 @@ const SHEETS = {
 
 const APP_INFO = {
   title: 'Jood Orders Pro',
-  version: '2026.09.15-v6.3-install-scroll-fix'
+  version: '2026.09.16-v6.4-speed'
 };
 
-const CACHE_SECONDS = 15;
+const CACHE_SECONDS = 120;
+const CACHE_CHUNK_CHARS = 20000;
 
 /*********** WEB APP / API ***********/
 function doGet(e) {
@@ -41,7 +42,7 @@ function doGet(e) {
       case 'getDashboardClients':
         payload = {
           ok: true,
-          data: getDashboardClients(_bool_(p.readyOnly || p.ready))
+          data: getDashboardClients(_bool_(p.readyOnly || p.ready), _bool_(p.force))
         };
         break;
 
@@ -49,7 +50,7 @@ function doGet(e) {
       case 'getClientModels':
         payload = {
           ok: true,
-          data: getClientModels(p.client, _bool_(p.readyOnly || p.ready))
+          data: getClientModels(p.client, _bool_(p.readyOnly || p.ready), _bool_(p.force))
         };
         break;
 
@@ -80,7 +81,7 @@ function doGet(e) {
       case 'summary':
         payload = {
           ok: true,
-          data: getSummaryStats()
+          data: getSummaryStats(_bool_(p.force))
         };
         break;
 
@@ -89,8 +90,7 @@ function doGet(e) {
         const delivered = deliverModels(p.client, items);
         payload = {
           ok: true,
-          delivered: delivered,
-          data: getSummaryStats(true)
+          delivered: delivered
         };
         break;
       }
@@ -131,8 +131,7 @@ function doPost(e) {
         const items = Array.isArray(body.items) ? body.items : _parseItems_(body.items);
         return _json_({
           ok: true,
-          delivered: deliverModels(body.client, items),
-          data: getSummaryStats(true)
+          delivered: deliverModels(body.client, items)
         });
       }
 
@@ -143,14 +142,14 @@ function doPost(e) {
       case 'getDashboardClients':
         return _json_({
           ok: true,
-          data: getDashboardClients(_bool_(body.readyOnly || body.ready))
+          data: getDashboardClients(_bool_(body.readyOnly || body.ready), _bool_(body.force))
         });
 
       case 'clientModels':
       case 'getClientModels':
         return _json_({
           ok: true,
-          data: getClientModels(body.client, _bool_(body.readyOnly || body.ready))
+          data: getClientModels(body.client, _bool_(body.readyOnly || body.ready), _bool_(body.force))
         });
 
       case 'searchClients':
@@ -177,7 +176,7 @@ function doPost(e) {
       case 'summary':
         return _json_({
           ok: true,
-          data: getSummaryStats()
+          data: getSummaryStats(_bool_(body.force))
         });
 
       default:
@@ -337,16 +336,69 @@ function _cache_() {
 
 function _cacheGetJson_(key) {
   try {
-    const raw = _cache_().get(key);
-    return raw ? JSON.parse(raw) : null;
+    const cache = _cache_();
+    const raw = cache.get(key);
+    if (raw) return JSON.parse(raw);
+
+    // البيانات الكبيرة قد تتجاوز حد CacheService للعنصر الواحد.
+    // لذلك نخزنها على أجزاء صغيرة ونجمّعها هنا.
+    const metaRaw = cache.get(key + '::__meta');
+    if (!metaRaw) return null;
+    const meta = JSON.parse(metaRaw);
+    const count = Math.max(0, _num_(meta && meta.count));
+    if (!count) return null;
+
+    const partKeys = [];
+    for (var i = 0; i < count; i++) partKeys.push(key + '::__' + i);
+    const parts = cache.getAll(partKeys);
+    var text = '';
+    for (var j = 0; j < partKeys.length; j++) {
+      if (!Object.prototype.hasOwnProperty.call(parts, partKeys[j])) return null;
+      text += parts[partKeys[j]];
+    }
+    return text ? JSON.parse(text) : null;
   } catch (_) {
     return null;
   }
 }
 
+function _cacheRemoveJson_(key) {
+  try {
+    const cache = _cache_();
+    const keys = [key];
+    const metaRaw = cache.get(key + '::__meta');
+    if (metaRaw) {
+      try {
+        const meta = JSON.parse(metaRaw);
+        const count = Math.max(0, _num_(meta && meta.count));
+        for (var i = 0; i < count; i++) keys.push(key + '::__' + i);
+      } catch (_) {}
+    }
+    keys.push(key + '::__meta');
+    cache.removeAll(keys);
+  } catch (_) {}
+}
+
 function _cachePutJson_(key, value, seconds) {
   try {
-    _cache_().put(key, JSON.stringify(value), seconds || CACHE_SECONDS);
+    const cache = _cache_();
+    const ttl = seconds || CACHE_SECONDS;
+    const text = JSON.stringify(value);
+
+    _cacheRemoveJson_(key);
+    if (text.length <= CACHE_CHUNK_CHARS) {
+      cache.put(key, text, ttl);
+      return;
+    }
+
+    const values = {};
+    var count = 0;
+    for (var i = 0; i < text.length; i += CACHE_CHUNK_CHARS) {
+      values[key + '::__' + count] = text.substring(i, i + CACHE_CHUNK_CHARS);
+      count++;
+    }
+    cache.putAll(values, ttl);
+    cache.put(key + '::__meta', JSON.stringify({ count: count }), ttl);
   } catch (_) {}
 }
 
@@ -359,9 +411,7 @@ function _clearCache_() {
     'modelsByPrefix',
     'summary'
   ];
-  try {
-    _cache_().removeAll(keys);
-  } catch (_) {}
+  keys.forEach(_cacheRemoveJson_);
 }
 
 /*********** HEADER CANDIDATES ***********/
@@ -734,13 +784,13 @@ function getDashboardClients(readyOnly, force) {
   return result;
 }
 
-function getClientModels(client, readyOnly) {
+function getClientModels(client, readyOnly, force) {
   const c = _norm_(client);
   if (!c) return [];
 
-  const stock = _loadStock_();
-  const orders = _loadOrders_();
-  const out = _loadOut_();
+  const stock = _loadStock_(force);
+  const orders = _loadOrders_(force);
+  const out = _loadOut_(force);
   const modelsMap = orders.ordersByClientModel.get(c);
   if (!modelsMap) return [];
 
@@ -993,8 +1043,12 @@ function getSummaryStats(force) {
   }
 
   const allClients = getDashboardClients(false, force);
-  const readyClients = getDashboardClients(true, force);
-  const stock = _loadStock_(force);
+  // لا نحتاج بناء قائمة dashboard_ready كاملة فقط لمعرفة العدد.
+  // dashboard_all يحتوي readyModels بالفعل، لذلك نحسب العدد محليًا ونوفر قراءة/تحويل إضافي.
+  const readyClientsCount = allClients.filter(function(c) {
+    return Array.isArray(c && c.readyModels) && c.readyModels.length > 0;
+  }).length;
+  const stock = _loadStock_(false);
 
   let stockQtyTotal = 0;
   stock.stockQty.forEach(function(v) { stockQtyTotal += _num_(v); });
@@ -1011,7 +1065,7 @@ function getSummaryStats(force) {
 
   const result = {
     allClients: allClients.length,
-    readyClients: readyClients.length,
+    readyClients: readyClientsCount,
     totalRequired: totalRequired,
     totalDelivered: totalDelivered,
     totalRemaining: totalRemaining,
